@@ -34,21 +34,11 @@
   </style>
 </head>
 <body>
-
   <header class="bg-blue-800 text-white p-4 sticky top-0 z-50 shadow-md">
     <div class="font-bold text-lg"><i class="fa-solid fa-toolbox mr-2"></i>業務ツール一覧</div>
   </header>
-
   <main id="menuView" class="p-4 max-w-lg mx-auto space-y-4 mt-4">
     
-    <a href="vehicle.html" class="tool-btn">
-      <div class="tool-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
-      <div>
-        <div class="font-bold text-lg">車両・駐車場管理</div>
-        <div class="text-xs text-gray-500">出張や納品の車両スケジューラ</div>
-      </div>
-    </a>
-
     <button onclick="openCalc()" class="tool-btn w-full text-left">
       <div class="tool-icon"><i class="fa-solid fa-calculator"></i></div>
       <div>
@@ -56,7 +46,20 @@
         <div class="text-xs text-gray-500">重量・インパルス・バランス等の計算</div>
       </div>
     </button>
-
+    <a href="#" class="tool-btn opacity-50" onclick="alert('準備中です')">
+      <div class="tool-icon"><i class="fa-solid fa-right-left"></i></div>
+      <div>
+        <div class="font-bold text-lg">出張【持出・返却】</div>
+        <div class="text-xs text-gray-500">出張時の計測器・備品の持出／返却管理</div>
+      </div>
+    </a>
+    <a href="vehicle.html" class="tool-btn">
+      <div class="tool-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+      <div>
+        <div class="font-bold text-lg">車両・駐車場管理</div>
+        <div class="text-xs text-gray-500">出張や納品の車両スケジューラ</div>
+      </div>
+    </a>
     <a href="#" class="tool-btn opacity-50" onclick="alert('準備中です')">
       <div class="tool-icon"><i class="fa-solid fa-book"></i></div>
       <div>
@@ -64,9 +67,7 @@
         <div class="text-xs text-gray-500">手順書や規定の確認</div>
       </div>
     </a>
-
   </main>
-
   <div id="calcView" style="display: none; height: calc(100vh - 130px);">
     <div class="bg-gray-200 p-2 text-sm flex justify-between items-center">
       <span class="font-bold text-gray-700">🧮 技術計算ツール</span>
@@ -74,7 +75,6 @@
     </div>
     <iframe src="https://sysnaggengvdoo.github.io/eng-calc/" class="w-full h-full border-0"></iframe>
   </div>
-
   <nav class="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around text-xs font-bold text-gray-500 z-40 pb-safe">
     <a href="index.html" class="flex flex-col items-center py-2 w-full hover:bg-blue-50 transition">
       <i class="fa-solid fa-list-check fa-lg mb-1"></i><span>当日作業</span>
@@ -86,7 +86,6 @@
       <i class="fa-solid fa-toolbox fa-lg mb-1"></i><span>業務ツール</span>
     </a>
   </nav>
-
   <script>
     // 計算ツールを開く処理
     function openCalc() {
