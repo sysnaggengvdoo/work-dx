@@ -65,20 +65,25 @@
         
         <div class="space-y-6">
           <div v-for="group in filteredGroupedLogs" :key="group.no" class="bg-white border-2 border-gray-200 rounded-xl shadow-md overflow-hidden">
-        <div class="bg-gray-800 text-white p-3 flex flex-col gap-1">
-              <div class="flex justify-between items-start">
-                <span class="font-black text-xl text-blue-300">{{ group.no }}</span>
-                <div class="flex flex-col items-end gap-1">
-                  <span class="bg-gray-600 px-2 py-1 rounded text-xs">履歴 {{ group.records.length }}件</span>
-                  <span v-if="group.output" class="text-xs font-bold text-white">出力: {{ group.output }}</span>
-                </div>
+            <div class="bg-gray-800 text-white p-3 flex flex-col gap-2">
+              <div class="flex justify-between items-start gap-2">
+                <span class="font-black text-xl text-blue-300 leading-tight">{{ group.no }}</span>
+                <span class="bg-gray-600 px-2 py-1 rounded text-xs font-bold shrink-0">履歴 {{ group.records.length }}件</span>
               </div>
-              <div class="text-sm font-bold border-t border-gray-600 pt-1 mt-1">
-                顧客名: {{ group.customer }}
+
+              <div class="border-t border-gray-600"></div>
+
+              <div class="flex justify-between items-start gap-3 text-sm font-bold">
+                <div class="min-w-0 flex-1">
+                  顧客名: <span class="break-words">{{ group.customer }}</span>
+                </div>
+                <div v-if="group.output" class="shrink-0 text-right text-white">
+                  出力: {{ group.output }}
+                </div>
               </div>
             </div>
             <div class="p-4 space-y-5 bg-gray-50">
-            <div v-for="(log, idx) in group.records" :key="idx" class="relative pl-4 border-l-4 border-blue-400">
+              <div v-for="(log, idx) in getVisibleRecords(group)" :key="`${group.no}-${idx}-${log['TS'] || log['タイムスタンプ'] || log['日付'] || ''}`" class="relative pl-4 border-l-4 border-blue-400">
                 <div class="flex justify-between items-center mb-1">
                   <div class="flex items-center gap-2">
                     <span class="text-gray-600 text-xs font-bold bg-gray-200 px-2 py-0.5 rounded">
@@ -95,7 +100,7 @@
                       {{ log['完了確認'] }}
                     </span>
                   </div>
-                  <span class="text-sm font-bold text-blue-800">担当: {{ log['担当'] }}</span>
+                  <span class="text-sm font-bold text-blue-800">{{ getTantoLabel(log) }}: {{ log['担当'] }}</span>
                 </div>
                 <p class="text-sm mb-2 text-gray-800">
                   <span class="font-bold text-gray-500 text-xs">作業内容:</span><br>
@@ -106,6 +111,15 @@
                   <p class="text-gray-800 whitespace-pre-wrap text-sm">{{ log['備考（引継ぎ・進捗状況等）'] || log['備考'] || 'なし' }}</p>
                 </div>
               </div>
+
+              <button
+                v-if="group.records.length > 1"
+                @click="toggleGroup(group.no)"
+                class="w-full py-2 px-3 rounded-lg border border-gray-300 bg-white hover:bg-blue-50 text-blue-700 text-sm font-bold shadow-sm transition flex items-center justify-center gap-2"
+              >
+                <span v-if="isGroupExpanded(group.no)">▲ 過去履歴を閉じる</span>
+                <span v-else>▼ 過去履歴をさらに {{ group.records.length - 1 }}件表示</span>
+              </button>
             </div>
           </div>
           <div v-if="filteredGroupedLogs.length === 0" class="text-center py-10 text-gray-500 font-bold">
@@ -169,10 +183,108 @@
         const searchQuery = ref("");
         const isLoading = ref(true);
         const error = ref(null);
+        const expandedGroups = ref({});
 
         const formatDate = (val) => {
           if (!val) return '日付不明';
           return String(val).split(' ')[0];
+        };
+
+        const getTantoLabel = (log) => {
+          const dept = String(
+            log['部署'] ||
+            log['部門'] ||
+            log['分類'] ||
+            log['区分'] ||
+            log['範囲'] ||
+            ''
+          );
+
+          const tanto = String(log['担当'] || '');
+
+          if (
+            dept.includes('出張') ||
+            dept.includes('車両') ||
+            dept.includes('運搬') ||
+            tanto.includes('人乗り') ||
+            tanto.includes('号車') ||
+            tanto.includes('社用車') ||
+            tanto.includes('レンタ') ||
+            tanto.includes('トラック') ||
+            tanto.includes('ハイエース') ||
+            tanto.includes('軽バン')
+          ) {
+            return '車両';
+          }
+
+          return '担当';
+        };
+
+        const parseDateTime = (val) => {
+          if (!val) return null;
+          if (val instanceof Date) return val;
+
+          const str = String(val).trim();
+          if (!str) return null;
+
+          const date = new Date(str.replace(/-/g, '/'));
+          if (isNaN(date.getTime())) return null;
+
+          return date;
+        };
+
+        const getLogTime = (log) => {
+          const date = parseDateTime(log['TS'] || log['タイムスタンプ'] || log['日付']);
+          return date ? date.getTime() : 0;
+        };
+
+        const getOutputValue = (log) => {
+          const candidates = [
+            log['出'],
+            log['出力'],
+            log['出力(kW)'],
+            log['容量'],
+            log['容量(kW)']
+          ];
+
+          for (const value of candidates) {
+            if (value === undefined || value === null) continue;
+
+            const text = String(value).trim();
+            if (!text) continue;
+            if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(text)) continue;
+
+            return text;
+          }
+
+          return '';
+        };
+
+        const getNoSortValue = (no) => {
+          const matches = String(no || '').match(/\d+/g);
+          if (!matches) return -1;
+          const mainNumbers = matches
+            .map(value => Number(value))
+            .filter(value => value >= 1000);
+          if (mainNumbers.length > 0) return Math.max(...mainNumbers);
+          return Math.max(...matches.map(value => Number(value)));
+        };
+
+        const isGroupExpanded = (groupNo) => {
+          return !!expandedGroups.value[groupNo];
+        };
+
+        const toggleGroup = (groupNo) => {
+          expandedGroups.value = {
+            ...expandedGroups.value,
+            [groupNo]: !expandedGroups.value[groupNo]
+          };
+        };
+
+        const getVisibleRecords = (group) => {
+          if (!group || !group.records) return [];
+          if (isGroupExpanded(group.no)) return group.records;
+          return group.records.slice(0, 1);
         };
 
         // ★改修1：爆速キャッシュ＆裏更新ロジック
@@ -223,15 +335,25 @@
           const groups = {};
           allLogs.value.forEach(log => {
             const no = String(log['整理№'] || log['整理No'] || log['整理No.'] || 'Noなし');
+            const outputValue = getOutputValue(log);
             if (!groups[no]) {
-              groups[no] = { no: no, customer: String(log['顧客名'] || '未入力'), output: String(log['出'] || log['出力'] || ''), records: [] };
+              groups[no] = { no: no, customer: String(log['顧客名'] || '未入力'), output: outputValue, records: [] };
             }
-            if (!groups[no].output && (log['出'] || log['出力'])) {
-              groups[no].output = String(log['出'] || log['出力']);
+            if (!groups[no].output && outputValue) {
+              groups[no].output = outputValue;
             }
             groups[no].records.push(log);
           });
-          return Object.values(groups);
+
+          Object.values(groups).forEach(group => {
+            group.records.sort((a, b) => getLogTime(b) - getLogTime(a));
+          });
+
+          return Object.values(groups).sort((a, b) => {
+            const diff = getNoSortValue(b.no) - getNoSortValue(a.no);
+            if (diff !== 0) return diff;
+            return String(b.no).localeCompare(String(a.no), 'ja');
+          });
         });
 
         // ★改修2：全角/半角スペース対応＆AND（複数条件）検索ロジック
@@ -275,7 +397,11 @@
           showYesterday, 
           clearSearch,
           refreshData,
-          formatDate 
+          formatDate,
+          isGroupExpanded,
+          toggleGroup,
+          getVisibleRecords,
+          getTantoLabel
         };
       }
     }).mount('#app');
