@@ -60,7 +60,9 @@
             color: #4b5563;                                
             opacity: 0.8;                                  
         }
-        .card-header { font-weight: bold; font-size: 1.15em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-header { font-weight: bold; font-size: 1.15em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; min-width: 0; }
+        .card-title { flex: 1; min-width: 0; }
+        .single-line-ellipsis { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
         
         .kintone-link-btn {
             display: none !important; /* ★これを追加して一旦非表示 */
@@ -79,7 +81,8 @@
         }
         .kintone-link-btn:active { transform: scale(0.95); }
 
-        .output-tag { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #4b5563; border: 1px solid #d1d5db; white-space: nowrap; }
+        .output-tag { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #4b5563; border: 1px solid #d1d5db; white-space: nowrap; flex-shrink: 0; }
+        .priority-output-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; }
         .priority-text { color: #dc2626; font-weight: bold; font-size: 1.05em; }
         .info { font-size: 0.9em; margin-bottom: 4px; color: #374151; line-height: 1.4; }
         
@@ -290,13 +293,12 @@
 
                 div.innerHTML = `
                     <div class="card-header">
-                        <div style="flex: 1; padding-right: 10px;">
-                            <span>${row["整理No."]}：${row["顧客名"] || "-"}</span>
+                        <div class="card-title">
+                            <span class="single-line-ellipsis">${row["整理No."]}：${row["顧客名"] || "-"}</span>
                             ${kintoneLink}
                         </div>
-                        ${outputDisplay}
                     </div>
-                    <div class="info"><span class="priority-text">優先順：${row["順"] || "-"}</span></div>
+                    <div class="info priority-output-row"><span class="priority-text">優先順：${row["順"] || "-"}</span>${outputDisplay}</div>
                     <div class="info"><strong>作業内容:</strong> ${row["作業内容"] || "-"}</div>
                     
                     <div class="info mt-3 mb-2 flex items-center">
