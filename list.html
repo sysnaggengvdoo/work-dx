@@ -85,6 +85,73 @@
             border-color: #1d4ed8;
         }
 
+        /* ★追加：全体連絡事項 ticker */
+        .notice-ticker {
+            display: flex;
+            align-items: center;
+            height: 34px;
+            background-color: #dbeafe;
+            border-bottom: 2px solid #2563eb;
+            overflow: hidden;
+            font-weight: bold;
+        }
+
+        .notice-label {
+            flex: 0 0 auto;
+            background-color: #1d4ed8;
+            color: white;
+            padding: 7px 12px;
+            font-size: 0.85rem;
+            z-index: 2;
+        }
+
+        .notice-track {
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .notice-text {
+            display: inline-block;
+            padding-left: 100%;
+            color: #dc2626;
+            font-size: 0.95rem;
+            animation: notice-scroll 38s linear infinite;
+        }
+
+        .notice-track:hover .notice-text {
+            animation-play-state: paused;
+        }
+
+        .notice-item {
+            margin-right: 56px;
+        }
+
+        .notice-item.info {
+            color: #2563eb;
+        }
+
+        .notice-item.important {
+            color: #dc2626;
+        }
+
+        @keyframes notice-scroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .notice-text {
+                animation: none;
+                padding-left: 12px;
+            }
+        }
+
         .main-content { padding: 8px; margin: 0 auto; max-width: 100%; }
 
         .table-container {
@@ -168,6 +235,14 @@
         </div>
     </header>
 
+    <!-- ★追加：全体連絡事項 -->
+    <div class="notice-ticker" id="noticeTicker" style="display: none;">
+        <div class="notice-label">全体連絡</div>
+        <div class="notice-track">
+            <div class="notice-text" id="noticeText"></div>
+        </div>
+    </div>
+
     <main class="main-content">
         <div id="loading" style="text-align: center; padding: 40px; color: #4b5563; font-weight: bold;">
             <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
@@ -200,8 +275,13 @@
 <script>
     const gasUrl = "https://script.google.com/macros/s/AKfycbwQqLYRy7JHH_orozMb9RF3fS_equHKdsImadg8MUHsVDPZ6E1f9yzgytqG2jqcxNAF/exec";
     
-    const CACHE_KEY = "sec_portal_cache_v36"; 
+    // ★変更：全体連絡事項を追加したのでキャッシュキー更新
+    const CACHE_KEY = "sec_portal_cache_v37"; 
+
     let globalData = [];
+
+    // ★追加：全体連絡事項用
+    let globalNotices = [];
 
     function refreshData() {
         localStorage.removeItem(CACHE_KEY); 
@@ -219,7 +299,15 @@
             try {
                 const cachedJSON = JSON.parse(cachedStr);
                 globalData = cachedJSON.tasks || [];
+
+                // ★追加：キャッシュ側の全体連絡事項
+                globalNotices = cachedJSON.notices || [];
+
                 loadingEl.style.display = 'none';
+
+                // ★追加：全体連絡事項を描画
+                renderNoticeTicker();
+
                 renderData();
             } catch (e) {
                 loadingEl.style.display = 'block';
@@ -233,9 +321,17 @@
             const result = await response.json();
             
             globalData = result.tasks || [];
+
+            // ★追加：GAS側の全体連絡事項
+            globalNotices = result.notices || [];
+
             localStorage.setItem(CACHE_KEY, JSON.stringify(result));
             
             loadingEl.style.display = 'none';
+
+            // ★追加：全体連絡事項を描画
+            renderNoticeTicker();
+
             renderData(); 
         } catch (error) {
             console.error("API通信エラー:", error);
@@ -243,6 +339,37 @@
                 loadingEl.innerHTML = '<div style="color:red; font-weight:bold;">データの読み込みに失敗しました。</div>';
             }
         }
+    }
+
+    // ★追加：全体連絡事項内でHTMLタグが動かないようにする
+    function escapeNoticeHtml(str) {
+        return String(str || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    // ★追加：全体連絡事項の描画
+    function renderNoticeTicker() {
+        const ticker = document.getElementById("noticeTicker");
+        const noticeText = document.getElementById("noticeText");
+
+        if (!globalNotices || globalNotices.length === 0) {
+            ticker.style.display = "none";
+            noticeText.innerHTML = "";
+            return;
+        }
+
+        const html = globalNotices.map(notice => {
+            const text = escapeNoticeHtml(notice.text || "");
+            const type = notice.type === "info" ? "info" : "important";
+            return `<span class="notice-item ${type}">${text}</span>`;
+        }).join("");
+
+        noticeText.innerHTML = html;
+        ticker.style.display = "flex";
     }
 
     function renderData() {
