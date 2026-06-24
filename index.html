@@ -50,7 +50,16 @@
 
         .main-content { padding: 16px; margin: 0 auto; }
 
-        .group-header { background: #374151; color: white; padding: 8px 15px; border-radius: 6px; margin-top: 20px; margin-bottom: 10px; font-size: 1.1em; display: flex; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .group-header { width: 100%; background: #1e3a8a; color: white; padding: 14px 16px; border: none; border-radius: 8px; margin-top: 14px; margin-bottom: 10px; font-size: 1.1em; font-weight: bold; font-family: inherit; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); cursor: pointer; text-align: left; touch-action: manipulation; }
+        .group-header:first-child { margin-top: 0; }
+        .group-header:active { transform: scale(0.99); }
+        .group-header.is-open { background: #1d4ed8; margin-bottom: 12px; }
+        .accordion-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .accordion-title .group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .accordion-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .count-badge { background: #dbeafe; color: #1e3a8a; padding: 3px 10px; border-radius: 999px; font-size: 0.9rem; line-height: 1.4; min-width: 3.25em; text-align: center; }
+        .accordion-arrow { display: inline-block; width: 1.5em; text-align: center; font-size: 1.05em; }
+        .accordion-body { margin-bottom: 8px; }
         .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; border-left: 8px solid #9ca3af; border: 1px solid #e5e7eb; border-left-width: 8px; }
         .card:active { transform: scale(0.98); }
         .status-planned { border-left-color: #fcd34d !important; background-color: #fefce8; } 
@@ -178,6 +187,8 @@
     let globalData = [];
     let attendanceData = {}; 
     let currentEditingId = null; 
+    let openedGroups = new Set();
+    let lastSearchWord = "";
 
     function switchMainTab(tabName) {
         const workMain = document.getElementById('work-order-main');
@@ -248,13 +259,74 @@
         }
     }
 
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function createTaskCard(row) {
+        let statusClass = "";
+        if (row["完了確認"] === "完了予定") statusClass = "status-planned";
+        if (row["完了確認"] === "完了" || row["完了確認"] === "繰越") statusClass = "status-gray";
+
+        const div = document.createElement('div');
+        div.className = `card ${statusClass}`;
+        const outputDisplay = row["出"] ? `<div class="output-tag">出力: ${row["出"]}</div>` : "";
+
+        const kintoneLink = row["修理カードURL"]
+            ? `<a href="${row["修理カードURL"]}" target="_blank" class="kintone-link-btn">🔗 開発中</a>`
+            : "";
+
+        div.innerHTML = `
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="single-line-ellipsis">${row["整理No."]}：${row["顧客名"] || "-"}</span>
+                    ${kintoneLink}
+                </div>
+            </div>
+            <div class="info priority-output-row"><span class="priority-text">優先順：${row["順"] || "-"}</span>${outputDisplay}</div>
+            <div class="info"><strong>作業内容:</strong> ${row["作業内容"] || "-"}</div>
+
+            <div class="info mt-3 mb-2 flex items-center">
+                <strong class="whitespace-nowrap">担当:</strong>
+                <button onclick="openAssigneeModal('${row["ID"]}', '${row["部署"]}')" class="ml-2 bg-white hover:bg-blue-50 text-blue-700 py-1.5 px-3 rounded border border-blue-400 shadow-sm text-sm font-bold transition-colors w-full text-left">
+                    <span id="display-tanto-${row["ID"]}">${row["担当"] || "未定（タップして選択）"}</span>
+                </button>
+            </div>
+
+            <div class="control-group">
+                <select id="status-${row["ID"]}">
+                    <option value="未着手" ${!row["完了確認"] || row["完了確認"] === "未着手" ? "selected" : ""}>未着手</option>
+                    <option value="完了予定" ${row["完了確認"] === "完了予定" ? "selected" : ""}>完了予定</option>
+                    <option value="完了" ${row["完了確認"] === "完了" ? "selected" : ""}>完了</option>
+                    <option value="繰越" ${row["完了確認"] === "繰越" ? "selected" : ""}>繰越</option>
+                </select>
+                <textarea id="note-${row["ID"]}" placeholder="備考を入力..." rows="2">${row["備考"] || ""}</textarea>
+                <button id="btn-${row["ID"]}" onclick="updateStatus('${row["ID"]}')">更新</button>
+            </div>
+        `;
+
+        return div;
+    }
+
     function renderData() {
         const container = document.getElementById('appContainer');
         container.innerHTML = '';
-        const searchWord = document.getElementById('searchInput').value.toLowerCase();
+        const searchWord = document.getElementById('searchInput').value.trim().toLowerCase();
+        const isSearching = searchWord.length > 0;
+
+        if (!isSearching && lastSearchWord) {
+            openedGroups.clear();
+        }
+        lastSearchWord = searchWord;
 
         const filteredData = globalData.filter(row => {
             if(!row["ID"]) return false; 
+            if (!isSearching) return true;
             const matchId = String(row["整理No."] || "").toLowerCase().includes(searchWord);
             const matchName = String(row["顧客名"] || "").toLowerCase().includes(searchWord);
             const matchPerson = String(row["担当"] || "").toLowerCase().includes(searchWord);
@@ -271,56 +343,39 @@
         for (const [groupName, rows] of Object.entries(groupedData)) {
             if (rows.length === 0) continue;
 
-            const headerObj = document.createElement('div');
-            headerObj.className = 'group-header';
-            headerObj.innerHTML = `<span>📁 ${groupName}</span> <span class="bg-gray-500 px-2 rounded text-sm">${rows.length}件</span>`;
-            container.appendChild(headerObj);
-
             rows.sort((a, b) => (parseInt(a["順"]) || 999) - (parseInt(b["順"]) || 999));
 
-            rows.forEach(row => {
-                let statusClass = "";
-                if (row["完了確認"] === "完了予定") statusClass = "status-planned";
-                if (row["完了確認"] === "完了" || row["完了確認"] === "繰越") statusClass = "status-gray";
-
-                const div = document.createElement('div');
-                div.className = `card ${statusClass}`;
-                const outputDisplay = row["出"] ? `<div class="output-tag">出力: ${row["出"]}</div>` : "";
-                
-                const kintoneLink = row["修理カードURL"] 
-                    ? `<a href="${row["修理カードURL"]}" target="_blank" class="kintone-link-btn">🔗 開発中</a>` 
-                    : "";
-
-                div.innerHTML = `
-                    <div class="card-header">
-                        <div class="card-title">
-                            <span class="single-line-ellipsis">${row["整理No."]}：${row["顧客名"] || "-"}</span>
-                            ${kintoneLink}
-                        </div>
-                    </div>
-                    <div class="info priority-output-row"><span class="priority-text">優先順：${row["順"] || "-"}</span>${outputDisplay}</div>
-                    <div class="info"><strong>作業内容:</strong> ${row["作業内容"] || "-"}</div>
-                    
-                    <div class="info mt-3 mb-2 flex items-center">
-                        <strong class="whitespace-nowrap">担当:</strong> 
-                        <button onclick="openAssigneeModal('${row["ID"]}', '${row["部署"]}')" class="ml-2 bg-white hover:bg-blue-50 text-blue-700 py-1.5 px-3 rounded border border-blue-400 shadow-sm text-sm font-bold transition-colors w-full text-left">
-                            <span id="display-tanto-${row["ID"]}">${row["担当"] || "未定（タップして選択）"}</span>
-                        </button>
-                    </div>
-
-                    <div class="control-group">
-                        <select id="status-${row["ID"]}">
-                            <option value="未着手" ${!row["完了確認"] || row["完了確認"] === "未着手" ? "selected" : ""}>未着手</option>
-                            <option value="完了予定" ${row["完了確認"] === "完了予定" ? "selected" : ""}>完了予定</option>
-                            <option value="完了" ${row["完了確認"] === "完了" ? "selected" : ""}>完了</option>
-                            <option value="繰越" ${row["完了確認"] === "繰越" ? "selected" : ""}>繰越</option>
-                        </select>
-                        <textarea id="note-${row["ID"]}" placeholder="備考を入力..." rows="2">${row["備考"] || ""}</textarea>
-                        <button id="btn-${row["ID"]}" onclick="updateStatus('${row["ID"]}')">更新</button>
-                    </div>
-                `;
-                container.appendChild(div);
+            const isOpen = isSearching || openedGroups.has(groupName);
+            const headerObj = document.createElement('button');
+            headerObj.type = 'button';
+            headerObj.className = `group-header accordion-header${isOpen ? ' is-open' : ''}`;
+            headerObj.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            headerObj.innerHTML = `
+                <span class="accordion-title">
+                    <span aria-hidden="true">📁</span>
+                    <span class="group-name">${escapeHtml(groupName)}</span>
+                </span>
+                <span class="accordion-meta">
+                    <span class="count-badge">${rows.length}件</span>
+                    <span class="accordion-arrow" aria-hidden="true">${isOpen ? '▼' : '▶'}</span>
+                </span>
+            `;
+            headerObj.addEventListener('click', () => {
+                if (openedGroups.has(groupName)) {
+                    openedGroups.delete(groupName);
+                } else {
+                    openedGroups.add(groupName);
+                }
+                renderData();
             });
+            container.appendChild(headerObj);
+
+            if (!isOpen) continue;
+
+            const bodyObj = document.createElement('div');
+            bodyObj.className = 'accordion-body';
+            rows.forEach(row => bodyObj.appendChild(createTaskCard(row)));
+            container.appendChild(bodyObj);
         }
 
         if (filteredData.length === 0) {
