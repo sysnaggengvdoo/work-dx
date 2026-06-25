@@ -4,13 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>業務ツール一覧</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
-    body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background-color: #f3f4f6; color: #333; padding-bottom: 70px; }
-    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+      background-color: #f3f4f6;
+      color: #333;
+      padding-bottom: 70px;
+      overscroll-behavior-y: none;
+    }
+
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
     /* ツールボタンのデザイン */
     .tool-btn {
       background-color: white;
@@ -22,83 +32,151 @@
       transition: all 0.2s;
       text-decoration: none;
       color: #333;
-      border-left: 6px solid #3b82f6; /* 青いアクセント */
+      border-left: 6px solid #3b82f6;
     }
-    .tool-btn:active { transform: scale(0.98); }
+
+    .tool-btn:active {
+      transform: scale(0.98);
+    }
+
     .tool-icon {
       font-size: 24px;
       color: #3b82f6;
       width: 50px;
       text-align: center;
+      flex-shrink: 0;
+    }
+
+    .tool-disabled {
+      opacity: 0.50;
+    }
+
+    #calcView {
+      display: none;
+      height: calc(100vh - 124px);
+    }
+
+    #calcFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
     }
   </style>
 </head>
+
 <body>
   <header class="bg-blue-800 text-white p-4 sticky top-0 z-50 shadow-md">
-    <div class="font-bold text-lg"><i class="fa-solid fa-toolbox mr-2"></i>業務ツール一覧</div>
+    <div class="font-bold text-lg">
+      <i class="fa-solid fa-toolbox mr-2"></i>業務ツール一覧
+    </div>
   </header>
+
   <main id="menuView" class="p-4 max-w-lg mx-auto space-y-4 mt-4">
-    
+
+    <!-- 1. 技術計算ツール -->
     <button onclick="openCalc()" class="tool-btn w-full text-left">
-      <div class="tool-icon"><i class="fa-solid fa-calculator"></i></div>
+      <div class="tool-icon">
+        <i class="fa-solid fa-calculator"></i>
+      </div>
       <div>
         <div class="font-bold text-lg">技術計算ツール</div>
         <div class="text-xs text-gray-500">重量・インパルス・バランス等の計算</div>
       </div>
     </button>
-    <a href="#" class="tool-btn opacity-50" onclick="alert('準備中です')">
-      <div class="tool-icon"><i class="fa-solid fa-qrcode"></i></div>
-      <div>
-        <div class="font-bold text-lg">QR出張機材【持出・返却】</div>
-        <div class="text-xs text-gray-500">QR読取による出張機材の持出／返却管理</div>
+
+    <!-- 2. 社内マニュアル -->
+    <a href="#" class="tool-btn tool-disabled" onclick="alert('準備中です'); return false;">
+      <div class="tool-icon">
+        <i class="fa-solid fa-book"></i>
       </div>
-    </a>
-    <a href="#" class="tool-btn opacity-50" onclick="alert('準備中です')">
-      <div class="tool-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-      <div>
-        <div class="font-bold text-lg">QR校正管理</div>
-        <div class="text-xs text-gray-500">計測器の校正期限・履歴・状態管理</div>
-      </div>
-    </a>
-    <a href="#" class="tool-btn opacity-50" onclick="alert('準備中です')">
-      <div class="tool-icon"><i class="fa-solid fa-book"></i></div>
       <div>
         <div class="font-bold text-lg">社内マニュアル</div>
         <div class="text-xs text-gray-500">手順書や規定の確認</div>
       </div>
     </a>
+
+    <!-- 3. 購買・調達 -->
+    <a href="#" class="tool-btn tool-disabled" onclick="alert('準備中です'); return false;">
+      <div class="tool-icon">
+        <i class="fa-solid fa-cart-shopping"></i>
+      </div>
+      <div>
+        <div class="font-bold text-lg">購買・調達</div>
+        <div class="text-xs text-gray-500">部品・消耗品・手配状況の確認</div>
+      </div>
+    </a>
+
+    <!-- 4. QR出張機材 -->
+    <a href="#" class="tool-btn tool-disabled" onclick="alert('準備中です'); return false;">
+      <div class="tool-icon">
+        <i class="fa-solid fa-qrcode"></i>
+      </div>
+      <div>
+        <div class="font-bold text-lg">QR出張機材【持出・返却】</div>
+        <div class="text-xs text-gray-500">QR読取による出張機材の持出／返却管理</div>
+      </div>
+    </a>
+
+    <!-- 5. QR校正管理 -->
+    <a href="#" class="tool-btn tool-disabled" onclick="alert('準備中です'); return false;">
+      <div class="tool-icon">
+        <i class="fa-solid fa-clipboard-check"></i>
+      </div>
+      <div>
+        <div class="font-bold text-lg">QR校正管理</div>
+        <div class="text-xs text-gray-500">計測器の校正期限・履歴・状態管理</div>
+      </div>
+    </a>
+
+    <!-- 車両・駐車場管理は一旦非表示
     <a href="vehicle.html" class="tool-btn">
-      <div class="tool-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+      <div class="tool-icon">
+        <i class="fa-solid fa-truck-ramp-box"></i>
+      </div>
       <div>
         <div class="font-bold text-lg">車両・駐車場管理</div>
         <div class="text-xs text-gray-500">出張や納品の車両スケジューラ</div>
       </div>
     </a>
+    -->
+
   </main>
-  <div id="calcView" style="display: none; height: calc(100vh - 130px);">
+
+  <div id="calcView">
     <div class="bg-gray-200 p-2 text-sm flex justify-between items-center">
       <span class="font-bold text-gray-700">🧮 技術計算ツール</span>
-      <button onclick="closeCalc()" class="bg-gray-400 text-white px-3 py-1 rounded text-xs hover:bg-gray-500"><i class="fa-solid fa-xmark"></i> 閉じる</button>
+      <button onclick="closeCalc()" class="bg-gray-400 text-white px-3 py-1 rounded text-xs hover:bg-gray-500">
+        <i class="fa-solid fa-xmark"></i> 閉じる
+      </button>
     </div>
-    <iframe src="https://sysnaggengvdoo.github.io/eng-calc/" class="w-full h-full border-0"></iframe>
+
+    <iframe id="calcFrame" src="https://sysnaggengvdoo.github.io/eng-calc/"></iframe>
   </div>
-  <nav class="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around text-xs font-bold text-gray-500 z-40 pb-safe">
-    <a href="index.html" class="flex flex-col items-center py-2 w-full hover:bg-blue-50 transition">
-      <i class="fa-solid fa-list-check fa-lg mb-1"></i><span>当日作業</span>
-    </a>
-    <a href="past.html" class="flex flex-col items-center py-2 w-full hover:bg-blue-50 transition">
-      <i class="fa-solid fa-magnifying-glass fa-lg mb-1"></i><span>過去検索</span>
-    </a>
-    <a href="#" class="flex flex-col items-center py-2 w-full text-blue-600 border-t-2 border-blue-600 bg-blue-50">
-      <i class="fa-solid fa-toolbox fa-lg mb-1"></i><span>業務ツール</span>
-    </a>
+
+  <!-- フッター：index / past 系と同様の横3分割構成 -->
+  <nav class="fixed bottom-0 left-0 right-0 w-full mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] pb-safe">
+    <div onclick="window.location.replace('index.html');"
+         class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+      今日の作業
+    </div>
+
+    <div onclick="window.location.replace('past.html');"
+         class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+      過去検索
+    </div>
+
+    <div class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
+      業務ツール
+    </div>
   </nav>
+
   <script>
     // 計算ツールを開く処理
     function openCalc() {
       document.getElementById('menuView').style.display = 'none';
       document.getElementById('calcView').style.display = 'block';
     }
+
     // 計算ツールを閉じてメニューに戻る処理
     function closeCalc() {
       document.getElementById('calcView').style.display = 'none';
