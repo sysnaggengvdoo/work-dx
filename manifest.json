@@ -1,6 +1,6 @@
 {
-  "name": "作業指示書",
-  "short_name": "作業指示書",
+  "name": "SEC work portal",
+  "short_name": "SEC portal",
   "start_url": "./index.html",
   "display": "standalone",
   "scope": "./",
