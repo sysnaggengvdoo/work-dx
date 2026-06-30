@@ -10,16 +10,8 @@
   <title>過去検索</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <style>
-    /* ★ 技術計算のiframe用のスタイルを追加 */
-    #calc-iframe {
-        display: none;
-        width: 100%;
-        height: calc(100vh - 60px); /* ナビゲーションバーの高さを引く */
-        border: none;
-    }
-  </style>
 </head>
+
 <body class="bg-gray-100 font-sans pb-12" style="overscroll-behavior-y: none;">
   <div id="app" class="w-full mx-auto bg-white min-h-screen shadow-lg">
     
@@ -55,9 +47,11 @@
         <div class="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
         <p class="text-gray-600 font-bold">データを読み込み中...</p>
       </div>
+
       <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
         {{ error }}
       </div>
+
       <div v-else>
         <p class="text-sm text-gray-500 mb-3 text-right">
           該当: <span class="font-bold text-gray-800">{{ filteredGroupedLogs.length }}</span> 案件 
@@ -82,6 +76,7 @@
                 </div>
               </div>
             </div>
+
             <div class="p-4 space-y-5 bg-gray-50">
               <div v-for="(log, idx) in getVisibleRecords(group)" :key="`${group.no}-${idx}-${log['TS'] || log['タイムスタンプ'] || log['日付'] || ''}`" class="relative pl-4 border-l-4 border-blue-400">
                 <div class="flex justify-between items-center mb-1">
@@ -102,10 +97,12 @@
                   </div>
                   <span class="text-sm font-bold text-blue-800">{{ getTantoLabel(log) }}: {{ log['担当'] }}</span>
                 </div>
+
                 <p class="text-sm mb-2 text-gray-800">
                   <span class="font-bold text-gray-500 text-xs">作業内容:</span><br>
                   {{ log['作業内容'] }}
                 </p>
+
                 <div class="bg-yellow-100 p-3 rounded border border-yellow-300 shadow-sm mt-2">
                   <p class="font-bold text-yellow-800 mb-1 text-xs">備考・引き継ぎ:</p>
                   <p class="text-gray-800 whitespace-pre-wrap text-sm">{{ log['備考（引継ぎ・進捗状況等）'] || log['備考'] || 'なし' }}</p>
@@ -122,61 +119,37 @@
               </button>
             </div>
           </div>
+
           <div v-if="filteredGroupedLogs.length === 0" class="text-center py-10 text-gray-500 font-bold">
             履歴が見つかりません。
           </div>
         </div>
       </div>
     </main>
-
-    <iframe id="calc-iframe" src="https://sysnaggengvdoo.github.io/eng-calc/"></iframe>
     
     <nav class="fixed bottom-0 left-0 right-0 w-full mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
       <div onclick="window.location.replace('index.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
         今日の作業
       </div>
-      <div id="nav-past" onclick="switchPastTab('past')" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
+
+      <div id="nav-past" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
         過去検索
       </div>
-      <div id="nav-calc" onclick="switchPastTab('calc')" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
-        計算
+
+      <div id="nav-tools" onclick="window.location.replace('tools.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+        業務ツール
       </div>
     </nav>
   </div>
 
   <script>
-    function switchPastTab(tabName) {
-        const pastMain = document.getElementById('past-log-main');
-        const calcFrame = document.getElementById('calc-iframe');
-        const header = document.getElementById('past-header');
-        
-        const navPast = document.getElementById('nav-past');
-        const navCalc = document.getElementById('nav-calc');
-
-        if (tabName === 'calc') {
-            pastMain.style.display = 'none';
-            calcFrame.style.display = 'block';
-            header.style.display = 'none'; 
-
-            navPast.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-lg hover:bg-gray-50 transition";
-            navCalc.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-l border-t-4 border-blue-700 transition";
-        } else {
-            pastMain.style.display = 'block';
-            calcFrame.style.display = 'none';
-            header.style.display = 'block';
-
-            navPast.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition";
-            navCalc.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition";
-        }
-    }
-
     const { createApp, ref, computed, onMounted } = Vue;
 
     createApp({
       setup() {
         const API_URL = "https://script.google.com/macros/s/AKfycbxVOgnDwBg-VwK6kZSZ8GbYnTykbALW-KPiBLoTO4z0t9O16QWBlFVXlLWL-xCF0dLj/exec";
         
-        // ★ キャッシュ用キー
+        // キャッシュ用キー
         const CACHE_KEY = "sec_past_logs_cache_v36";
 
         const allLogs = ref([]);
@@ -287,7 +260,7 @@
           return group.records.slice(0, 1);
         };
 
-        // ★改修1：爆速キャッシュ＆裏更新ロジック
+        // 爆速キャッシュ＆裏更新ロジック
         const fetchAllData = async (forceRefresh = false) => {
           if (forceRefresh) {
             localStorage.removeItem(CACHE_KEY);
@@ -298,7 +271,7 @@
             if (cachedStr) {
               try {
                 allLogs.value = JSON.parse(cachedStr);
-                isLoading.value = false; // 一瞬で画面表示
+                isLoading.value = false;
               } catch (e) {
                 console.warn("キャッシュパース失敗", e);
                 isLoading.value = true;
@@ -336,12 +309,20 @@
           allLogs.value.forEach(log => {
             const no = String(log['整理№'] || log['整理No'] || log['整理No.'] || 'Noなし');
             const outputValue = getOutputValue(log);
+
             if (!groups[no]) {
-              groups[no] = { no: no, customer: String(log['顧客名'] || '未入力'), output: outputValue, records: [] };
+              groups[no] = {
+                no: no,
+                customer: String(log['顧客名'] || '未入力'),
+                output: outputValue,
+                records: []
+              };
             }
+
             if (!groups[no].output && outputValue) {
               groups[no].output = outputValue;
             }
+
             groups[no].records.push(log);
           });
 
@@ -356,27 +337,32 @@
           });
         });
 
-        // ★改修2：全角/半角スペース対応＆AND（複数条件）検索ロジック
+        // 全角/半角スペース対応＆AND（複数条件）検索ロジック
         const filteredGroupedLogs = computed(() => {
           if (!searchQuery.value) return groupedLogs.value;
           
-          // 検索窓の文字を小文字化し、全角スペースを半角に変換し、配列化する
-          const searchWords = searchQuery.value.toLowerCase().replace(/　/g, ' ').split(' ').filter(w => w !== '');
+          const searchWords = searchQuery.value
+            .toLowerCase()
+            .replace(/　/g, ' ')
+            .split(' ')
+            .filter(w => w !== '');
 
           return groupedLogs.value.filter(group => {
-            // その案件が持つすべての情報（タイトル、すべての履歴）を1つの巨大な文字列にする
             let groupText = `${group.no} ${group.customer} ${group.output} `;
+
             group.records.forEach(log => {
               groupText += `${log['TS'] || log['タイムスタンプ'] || log['日付'] || ''} ${log['作業内容'] || ''} ${log['担当'] || ''} ${log['備考（引継ぎ・進捗状況等）'] || log['備考'] || ''} ${log['完了確認'] || ''} `;
             });
+
             groupText = groupText.toLowerCase();
 
-            // 入力されたすべてのキーワード（searchWords）が、groupTextの中に含まれているか（AND検索）
             return searchWords.every(word => groupText.includes(word));
           });
         });
 
-        const totalRecordsCount = computed(() => filteredGroupedLogs.value.reduce((sum, group) => sum + group.records.length, 0));
+        const totalRecordsCount = computed(() => {
+          return filteredGroupedLogs.value.reduce((sum, group) => sum + group.records.length, 0);
+        });
 
         const showYesterday = () => {
           const d = new Date();
@@ -384,7 +370,9 @@
           searchQuery.value = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
         };
 
-        const clearSearch = () => searchQuery.value = "";
+        const clearSearch = () => {
+          searchQuery.value = "";
+        };
         
         onMounted(() => fetchAllData());
         
