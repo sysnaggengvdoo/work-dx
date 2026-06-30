@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="作業指示書">
     <link rel="manifest" href="manifest.json">
-    <title>作業指示書 Web-v3.64</title>
+    <title>作業指示書 Web-v3.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; margin: 0; color: #333; padding-bottom: 50px; overscroll-behavior-y: none; }
@@ -15,15 +15,15 @@
         .header-container { background-color: #1d4ed8; color: white; padding: 8px; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         .header-container h1 { text-align: center; font-size: 1.25rem; font-weight: bold; margin: 0 0 4px 0; letter-spacing: 0.05em; text-shadow: none; }
         
-        /* ★修正：検索窓とボタンの配置を調整 */
+        /* 検索窓とボタンの配置 */
         .search-box { display: flex; gap: 6px; width: 100%; align-items: center; }
         .search-box input { flex: 1; padding: 8px 10px; font-size: 0.95em; border-radius: 6px; border: none; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: black; outline: none; min-width: 0; }
         .search-box input:focus { box-shadow: 0 0 0 2px #60a5fa; }
         
-        /* ★追加：ボタンを横並びにするコンテナ */
+        /* ボタンを横並びにするコンテナ */
         .header-buttons { display: flex; gap: 6px; flex-shrink: 0; }
 
-        /* ★追加・修正：コンパクトな共通ボタンスタイル */
+        /* コンパクトな共通ボタンスタイル */
         .action-btn { 
             padding: 8px 12px; 
             color: white; 
@@ -74,7 +74,7 @@
         .single-line-ellipsis { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
         
         .kintone-link-btn {
-            display: none !important; /* ★これを追加して一旦非表示 */
+            display: none !important;
             background-color: #f59e0b;
             color: white !important;
             padding: 2px 8px;
@@ -119,13 +119,6 @@
         .control-group button { grid-column: 2; grid-row: 1 / 3; padding: 0 20px; font-size: 1.1em; border: none; border-radius: 6px; background-color: #3b82f6; color: white; cursor: pointer; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s; }
         .control-group button:hover { background-color: #2563eb; }
         #loading { text-align: center; padding: 40px; color: #4b5563; font-size: 1.1em; font-weight: bold; display: none; }
-        
-        #calc-iframe {
-            display: none;
-            width: 100%;
-            height: calc(100vh - 110px);
-            border: none;
-        }
     </style>
 </head>
 <body>
@@ -133,7 +126,7 @@
 <div id="app" class="w-full mx-auto bg-gray-100 min-h-screen relative shadow-lg">
 
     <header class="header-container" id="main-header">
-        <h1>📋 作業指示書 Web-v3.64</h1>
+        <h1>📋 作業指示書 Web-v3.7</h1>
         <div class="search-box" id="search-box">
             <input type="text" id="searchInput" placeholder="🔍 整理No、顧客名、担当で検索..." oninput="renderData()">
             
@@ -152,17 +145,17 @@
         <div id="appContainer"></div>
     </main>
 
-    <iframe id="calc-iframe" src="https://sysnaggengvdoo.github.io/eng-calc/"></iframe>
-
     <nav class="fixed bottom-0 left-0 right-0 w-full mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50">
-      <div id="nav-today" onclick="switchMainTab('today')" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
+      <div id="nav-today" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
         今日の作業
       </div>
+
       <div id="nav-past" onclick="window.location.replace('past.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
         過去検索
       </div>
-      <div id="nav-calc" onclick="switchMainTab('calc')" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
-        計算
+
+      <div id="nav-tools" onclick="window.location.replace('tools.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+        業務ツール
       </div>
     </nav>
 
@@ -189,29 +182,6 @@
     let currentEditingId = null; 
     let openedGroups = new Set();
     let lastSearchWord = "";
-
-    function switchMainTab(tabName) {
-        const workMain = document.getElementById('work-order-main');
-        const calcFrame = document.getElementById('calc-iframe');
-        const searchBox = document.getElementById('search-box');
-        
-        const navToday = document.getElementById('nav-today');
-        const navCalc = document.getElementById('nav-calc');
-
-        if (tabName === 'calc') {
-            workMain.style.display = 'none';
-            calcFrame.style.display = 'block';
-            searchBox.style.display = 'none';
-            navToday.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-gray-200 font-bold text-lg hover:bg-gray-50 transition";
-            navCalc.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-l border-t-4 border-blue-700 transition";
-        } else {
-            workMain.style.display = 'block';
-            calcFrame.style.display = 'none';
-            searchBox.style.display = 'flex';
-            navToday.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition";
-            navCalc.className = "cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition";
-        }
-    }
 
     function refreshData() {
         localStorage.removeItem(CACHE_KEY); 
@@ -379,7 +349,7 @@
         }
 
         if (filteredData.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:30px; color:#6b7280; background:white; border-radius:8px; border:1px solid #e5e7eb; shadow-sm">一致する指示書がありません</div>';
+            container.innerHTML = '<div style="text-align:center; padding:30px; color:#6b7280; background:white; border-radius:8px; border:1px solid #e5e7eb;">一致する指示書がありません</div>';
         }
     }
 
