@@ -150,11 +150,11 @@
         今日の作業
       </div>
 
-      <div id="nav-past" onclick="window.location.replace('past.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+      <div id="nav-past" onclick="navigateAway('past.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
         過去検索
       </div>
 
-      <div id="nav-tools" onclick="window.location.replace('tools.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+      <div id="nav-tools" onclick="navigateAway('tools.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
         業務ツール
       </div>
     </nav>
@@ -182,49 +182,120 @@
     let currentEditingId = null; 
     let openedGroups = new Set();
     let lastSearchWord = "";
+    let activeLoadId = 0;
+    let activeLoadController = null;
+    let isFetchingData = false;
 
-    function refreshData() {
-        localStorage.removeItem(CACHE_KEY); 
-        document.getElementById('appContainer').innerHTML = '';
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('loading').innerHTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...';
-        loadData();
+    const LOADING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...';
+    const LOAD_ERROR_HTML = '<div style="color:red; font-weight:bold;">データの読み込みに失敗しました。電波状況を確認してください。</div>';
+
+    function showLoading() {
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
+        loadingEl.innerHTML = LOADING_HTML;
+        loadingEl.style.display = 'block';
     }
 
-    async function loadData() {
+    function hideLoading() {
         const loadingEl = document.getElementById('loading');
-        const cachedStr = localStorage.getItem(CACHE_KEY);
+        if (!loadingEl) return;
+        loadingEl.style.display = 'none';
+    }
+
+    function showLoadError() {
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
+        loadingEl.innerHTML = LOAD_ERROR_HTML;
+        loadingEl.style.display = 'block';
+    }
+
+    function abortActiveLoad() {
+        activeLoadId++;
+        if (activeLoadController) {
+            activeLoadController.abort();
+            activeLoadController = null;
+        }
+        isFetchingData = false;
+    }
+
+    function navigateAway(url) {
+        abortActiveLoad();
+        hideLoading();
+        window.location.replace(url);
+    }
+
+    function refreshData() {
+        abortActiveLoad();
+        localStorage.removeItem(CACHE_KEY); 
+        globalData = [];
+        attendanceData = {};
+        document.getElementById('appContainer').innerHTML = '';
+        showLoading();
+        loadData({ forceRefresh: true });
+    }
+
+    async function loadData(options = {}) {
+        const { forceRefresh = false } = options;
+        abortActiveLoad();
+        const loadId = ++activeLoadId;
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        activeLoadController = controller;
+        isFetchingData = true;
+
+        const cachedStr = forceRefresh ? null : localStorage.getItem(CACHE_KEY);
+        let renderedFromCache = false;
+        let loadedFromNetwork = false;
 
         if (cachedStr) {
             try {
                 const cachedJSON = JSON.parse(cachedStr);
+                if (loadId !== activeLoadId) return;
                 globalData = cachedJSON.tasks || [];
                 attendanceData = cachedJSON.attendance || {};
-                loadingEl.style.display = 'none';
+                renderedFromCache = true;
+                hideLoading();
                 renderData();
             } catch (e) {
                 console.warn("キャッシュのパースに失敗", e);
-                loadingEl.style.display = 'block';
+                localStorage.removeItem(CACHE_KEY);
+                showLoading();
             }
         } else {
-            loadingEl.style.display = 'block';
+            showLoading();
         }
 
         try {
-            const response = await fetch(`${gasUrl}?_=${new Date().getTime()}`);
+            const fetchOptions = controller ? { signal: controller.signal } : {};
+            const response = await fetch(`${gasUrl}?_=${new Date().getTime()}`, fetchOptions);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             const result = await response.json();
+            if (loadId !== activeLoadId) return;
             
             globalData = result.tasks || [];
             attendanceData = result.attendance || {};
             
             localStorage.setItem(CACHE_KEY, JSON.stringify(result));
             
-            loadingEl.style.display = 'none';
+            loadedFromNetwork = true;
+            hideLoading();
             renderData(); 
         } catch (error) {
+            if (error.name === 'AbortError' || loadId !== activeLoadId) return;
             console.error("API通信エラー:", error);
-            if (!cachedStr) { 
-                loadingEl.innerHTML = '<div style="color:red; font-weight:bold;">データの読み込みに失敗しました。電波状況を確認してください。</div>';
+            if (!renderedFromCache) {
+                showLoadError();
+            }
+        } finally {
+            if (activeLoadController === controller) {
+                activeLoadController = null;
+            }
+            if (loadId === activeLoadId) {
+                isFetchingData = false;
+                if (renderedFromCache || loadedFromNetwork) {
+                    hideLoading();
+                }
             }
         }
     }
@@ -454,7 +525,16 @@
         }
     }
 
-    window.onload = loadData;
+    window.addEventListener('load', () => loadData());
+    window.addEventListener('pagehide', () => {
+        abortActiveLoad();
+        hideLoading();
+    });
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            loadData();
+        }
+    });
 </script>
 
 </body>
