@@ -61,17 +61,13 @@
       top: 0;
       z-index: 10;
     }
-
-    .pb-safe {
-      padding-bottom: env(safe-area-inset-bottom);
-    }
   </style>
 </head>
 
 <body class="bg-slate-100 font-sans text-slate-800 h-screen overflow-hidden">
   <div
     id="app"
-    class="flex flex-col h-full w-full max-w-[1600px] mx-auto bg-slate-100"
+    class="flex flex-col h-full w-full mx-auto bg-slate-100"
   >
     <header class="bg-teal-800 text-white px-3 py-2 sm:p-4 z-40 shadow-md shrink-0">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
@@ -167,7 +163,7 @@
 
     <main
       v-else
-      class="flex-1 overflow-hidden flex flex-col md:flex-row p-2 sm:p-4 gap-4 pb-[70px] sm:pb-20"
+      class="flex-1 overflow-hidden flex flex-col md:flex-row p-2 sm:p-4 gap-4 pb-14"
     >
       <section
         class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col w-full md:w-1/3 lg:w-1/4 h-full transition-all"
@@ -179,7 +175,7 @@
               📦 アイテム一覧
             </h2>
             <p class="text-[11px] text-gray-400 font-bold mt-0.5">
-              整理No.ごとの推定現在地
+              整理No.ごとの現在地
             </p>
           </div>
 
@@ -236,22 +232,8 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
-              <span
-                v-if="!activeWarehouse"
-                class="bg-slate-200 px-2 py-0.5 rounded text-slate-700"
-              >
+              <span class="bg-slate-200 px-2 py-0.5 rounded text-slate-700">
                 {{ item.latestWarehouse || '不明' }}
-              </span>
-
-              <span
-                class="px-2 py-0.5 rounded border"
-                :class="actionTagClass(item.latestAction)"
-              >
-                {{ item.latestAction }}
-              </span>
-
-              <span class="text-gray-400 ml-auto">
-                {{ formatDateShort(item.latestDate) }}
               </span>
             </div>
           </button>
@@ -290,10 +272,6 @@
                 <h3 class="text-xl md:text-2xl font-black text-blue-900 tracking-wider break-all">
                   {{ selectedItem.no }}
                 </h3>
-
-                <span class="text-[10px] font-black text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded-full whitespace-nowrap">
-                  推定
-                </span>
               </div>
 
               <div class="space-y-2 text-sm font-bold text-gray-700">
@@ -323,13 +301,6 @@
                 >
                   最終確認: {{ selectedItem.latestStatus || '情報なし' }}
                 </span>
-
-                <span
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border"
-                  :class="actionTagClass(selectedItem.latestAction)"
-                >
-                  {{ selectedItem.latestAction }}
-                </span>
               </div>
             </div>
 
@@ -338,10 +309,6 @@
                 <span>📍</span>
                 Location Map
               </h4>
-
-              <span class="text-[10px] text-gray-400 font-bold whitespace-nowrap">
-                作業内容から抽出
-              </span>
             </div>
 
             <div class="grid grid-cols-1 gap-2 relative">
@@ -383,11 +350,6 @@
                   イレギュラー
                 </span>
               </div>
-            </div>
-
-            <div class="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-bold leading-relaxed">
-              ※ 現時点では、作業内容の文章から倉庫名を抽出して現在地を推定しています。<br>
-              v4.0以降で「現在地」「移動元」「移動先」を項目化すると、判定精度をさらに上げられます。
             </div>
           </div>
         </div>
@@ -449,19 +411,6 @@
                   </div>
                 </div>
 
-                <div class="mb-2 flex flex-wrap items-center gap-1.5">
-                  <span
-                    class="text-[11px] font-bold px-2 py-0.5 rounded border"
-                    :class="actionTagClass(log.__actionTag)"
-                  >
-                    {{ log.__actionTag }}
-                  </span>
-
-                  <span class="text-[11px] text-gray-400 font-bold">
-                    作業内容から抽出
-                  </span>
-                </div>
-
                 <div class="text-sm font-black text-gray-800 mb-2 leading-relaxed whitespace-pre-wrap break-words">
                   {{ textOrDash(log['作業内容']) }}
                 </div>
@@ -500,7 +449,7 @@
                   </th>
 
                   <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
-                    推定場所・作業
+                    場所・作業
                   </th>
 
                   <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
@@ -536,17 +485,6 @@
                       </span>
 
                       <span>{{ log.__warehouse || '不明' }}</span>
-
-                      <span
-                        class="text-[10px] px-2 py-0.5 rounded border"
-                        :class="actionTagClass(log.__actionTag)"
-                      >
-                        {{ log.__actionTag }}
-                      </span>
-
-                      <span class="text-[10px] text-gray-400 font-bold">
-                        推定
-                      </span>
                     </div>
 
                     <div class="text-xs text-gray-700 font-bold leading-relaxed whitespace-pre-wrap break-words">
@@ -597,24 +535,24 @@
       </div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 w-full max-w-[1600px] mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] pb-safe">
+    <nav class="fixed bottom-0 left-0 right-0 w-full mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
       <a
         href="index.html"
-        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-sm sm:text-lg hover:bg-gray-50 transition"
+        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-lg hover:bg-gray-50 transition"
       >
         今日の作業
       </a>
 
       <a
         href="past.html"
-        class="flex items-center justify-center w-1/3 py-2 text-teal-700 bg-teal-50 font-bold text-sm sm:text-lg border-t-4 border-teal-700 transition"
+        class="flex items-center justify-center w-1/3 py-2 text-teal-700 bg-teal-50 font-bold text-lg border-t-4 border-teal-700 transition"
       >
         過去検索
       </a>
 
       <a
         href="tools.html"
-        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-sm sm:text-lg hover:bg-gray-50 transition"
+        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition"
       >
         業務ツール
       </a>
@@ -633,7 +571,7 @@
     const API_URL =
       "https://script.google.com/macros/s/AKfycbxVOgnDwBg-VwK6kZSZ8GbYnTykbALW-KPiBLoTO4z0t9O16QWBlFVXlLWL-xCF0dLj/exec";
 
-    const CACHE_KEY = "sec_warehouse_logs_cache_v4";
+    const CACHE_KEY = "sec_warehouse_logs_cache_v5";
 
     const WAREHOUSE_DEFS = [
       {
@@ -728,16 +666,6 @@
       ));
     }
 
-    /**
-     * 作業内容から倉庫名を推定する。
-     *
-     * 例：
-     * - 「京浜島倉庫で部品清掃」 → 京浜島倉庫
-     * - 「京浜島倉庫からアラックス倉庫へ移動」 → アラックス倉庫を優先
-     *
-     * ただし、現時点では自由記述からの推定なので、
-     * v4.0以降は現在地・移動元・移動先の項目化が理想。
-     */
     function extractWarehouseNameFromText(text) {
       const workText = normalizeText(text);
       const candidates = getWarehouseCandidates(workText);
@@ -765,30 +693,23 @@
 
         let score = 0;
 
-        // 「移動先：アラックス」「搬入先：京浜島」などを優先
         if (/移動先|搬入先|入庫先|保管先|格納先|置き場/.test(before)) {
           score += 14;
         }
 
-        // 「アラックスへ」「京浜島に」「本社裏まで」など、移動先らしい表現を優先
         if (/へ|に|まで|入庫|搬入|持込|持ち込|保管|格納|置き/.test(after)) {
           score += 10;
         }
 
-        // 「京浜島から」は移動元の可能性が高いので弱める
         if (/から|より/.test(after)) {
           score -= 10;
         }
 
-        // 「移動元：京浜島」「搬出元：アラックス」なども弱める
         if (/移動元|搬出元|出庫元/.test(before)) {
           score -= 8;
         }
 
-        // 複数倉庫名が出る文章では、後ろ側が移動先になりやすいので少し優先
         score += candidate.index * 0.01;
-
-        // 正式名称の方を少し優先
         score += candidate.alias.length * 0.001;
 
         return {
@@ -806,40 +727,6 @@
       return extractWarehouseNameFromText(
         log && log["作業内容"]
       );
-    }
-
-    function extractActionTag(text) {
-      const value = normalizeText(text);
-
-      if (!value) {
-        return "記録";
-      }
-
-      if (/清掃|洗浄|片付|片づ|整理|部品清掃/.test(value)) {
-        return "清掃";
-      }
-
-      if (/移動|移設|移管|移す|移し|移送|移動先|移動元/.test(value)) {
-        return "移動";
-      }
-
-      if (/持ち込み|持込|搬入|入庫|入れ|保管|置き場|格納/.test(value)) {
-        return "入庫系";
-      }
-
-      if (/持ち出し|持出|搬出|出庫|引取|引き取り|返却|発送|出荷/.test(value)) {
-        return "出庫系";
-      }
-
-      if (/確認|点検|検査|チェック|見直し|確認済/.test(value)) {
-        return "確認";
-      }
-
-      if (/修理|加工|作業|分解|組立|組み立て/.test(value)) {
-        return "作業";
-      }
-
-      return "記録";
     }
 
     createApp({
@@ -912,18 +799,6 @@
           return datePart || "日付不明";
         };
 
-        const formatDateShort = (value) => {
-          const formatted = formatDate(value);
-
-          if (formatted === "日付不明") {
-            return formatted;
-          }
-
-          const parts = formatted.split(/\s+/);
-
-          return parts[1] || parts[0] || formatted;
-        };
-
         /**
          * 整理No.はUnicode正規化を行わず、
          * DBから受け取った丸数字をそのまま表示する。
@@ -960,7 +835,6 @@
               continue;
             }
 
-            // 日付っぽい値は出力として扱わない
             if (/^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(text)) {
               continue;
             }
@@ -1000,46 +874,14 @@
           return "bg-white text-gray-600 border-gray-300";
         };
 
-        const actionTagClass = (tag) => {
-          const value = normalizeText(tag);
-
-          if (value === "入庫系") {
-            return "bg-emerald-50 text-emerald-700 border-emerald-200";
-          }
-
-          if (value === "出庫系") {
-            return "bg-orange-50 text-orange-700 border-orange-200";
-          }
-
-          if (value === "移動") {
-            return "bg-blue-50 text-blue-700 border-blue-200";
-          }
-
-          if (value === "清掃") {
-            return "bg-cyan-50 text-cyan-700 border-cyan-200";
-          }
-
-          if (value === "確認") {
-            return "bg-purple-50 text-purple-700 border-purple-200";
-          }
-
-          if (value === "作業") {
-            return "bg-slate-50 text-slate-700 border-slate-200";
-          }
-
-          return "bg-gray-50 text-gray-600 border-gray-200";
-        };
-
         const warehouseLogs = computed(() =>
           allLogs.value
             .map((log) => {
               const warehouse = getWarehouseName(log);
-              const actionTag = extractActionTag(log["作業内容"]);
 
               return {
                 ...log,
                 __warehouse: warehouse,
-                __actionTag: actionTag,
                 __time: getLogTime(log)
               };
             })
@@ -1060,7 +902,6 @@
                 output: getOutputValue(log),
                 latestWarehouse: log.__warehouse,
                 latestStatus: normalizeText(log["完了確認"]),
-                latestAction: log.__actionTag,
                 latestDate: getDateValue(log),
                 latestNote: getNoteValue(log),
                 logs: []
@@ -1094,24 +935,15 @@
             log["完了確認"],
             getDateValue(log),
             getNoteValue(log),
-            log.__warehouse,
-            log.__actionTag
+            log.__warehouse
           ].join(" ")).join(" ");
 
-          /*
-           * 検索時はNFKC正規化する。
-           *
-           * これにより検索欄へ「25004731」と入力しても、
-           * 表示値が「2500473①」のレコードを検索できる。
-           * 表示値そのものは変更しない。
-           */
           const searchableText = normalizeText([
             item.no,
             item.customer,
             item.output,
             item.latestWarehouse,
             item.latestStatus,
-            item.latestAction,
             item.latestDate,
             item.latestNote,
             logsText
@@ -1287,14 +1119,12 @@
           getDateValue,
           getLogTime,
           formatDate,
-          formatDateShort,
           getManagementNo,
           getNoteValue,
           getOutputValue,
           getPersonInitial,
           textOrDash,
-          statusClass,
-          actionTagClass
+          statusClass
         };
       }
     }).mount("#app");
