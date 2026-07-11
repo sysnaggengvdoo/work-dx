@@ -8,178 +8,486 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="倉庫ログ">
 
+  <link rel="manifest" href="manifest.json">
+
   <title>倉庫ログ</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
   <style>
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    .sticky-table-header th { position: sticky; top: 0; z-index: 10; }
-    
-    /* モバイルでのタップハイライトを消す */
-    * { -webkit-tap-highlight-color: transparent; }
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      overscroll-behavior-y: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .hide-scrollbar {
+      scrollbar-width: none;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .sticky-table-header th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
   </style>
 </head>
 
-<body class="bg-slate-100 font-sans h-screen overflow-hidden flex flex-col text-slate-800">
-  <div id="app" class="flex flex-col h-full w-full max-w-[1600px] mx-auto bg-slate-100">
-    
+<body class="bg-slate-100 font-sans text-slate-800 h-screen overflow-hidden">
+  <div
+    id="app"
+    class="flex flex-col h-full w-full max-w-[1600px] mx-auto bg-slate-100"
+  >
     <header class="bg-teal-800 text-white px-3 py-2 sm:p-4 z-40 shadow-md shrink-0">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
         <div class="flex items-center justify-between w-full sm:w-auto gap-3">
-          <a href="past.html" class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded text-xs font-bold transition whitespace-nowrap">
-            ← 戻る
+          <a
+            href="past.html"
+            class="bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded text-[11px] sm:text-xs font-bold whitespace-nowrap transition"
+          >
+            ← 過去検索へ戻る
           </a>
-          <h1 class="text-base sm:text-lg font-bold tracking-wider truncate">倉庫ログ</h1>
-          <button type="button" @click="refreshData" class="sm:hidden bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded text-xs font-bold shadow transition">
+
+          <div class="min-w-0 text-center sm:text-left">
+            <h1 class="text-base sm:text-lg font-bold tracking-wider truncate">
+              倉庫ポータル
+            </h1>
+            <p class="hidden sm:block text-[11px] text-teal-100 font-bold leading-tight">
+              作業内容から倉庫名を抽出して、現在地と履歴を表示
+            </p>
+          </div>
+
+          <button
+            type="button"
+            @click="refreshData"
+            class="sm:hidden bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded text-xs font-bold shadow whitespace-nowrap transition"
+          >
             🔄
           </button>
         </div>
 
         <div class="flex w-full sm:max-w-md lg:max-w-xl gap-2">
-          <input type="search" v-model="searchQuery" placeholder="整理No.、顧客名で検索..."
-            class="flex-1 px-3 py-2 sm:py-1.5 rounded text-black focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm shadow-inner">
-          <button type="button" @click="clearSearch" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 sm:py-1.5 rounded text-sm font-bold transition whitespace-nowrap">
+          <input
+            type="search"
+            v-model="searchQuery"
+            placeholder="整理No.、顧客名、作業内容、担当、備考で検索..."
+            class="min-w-0 flex-1 px-3 py-2 sm:py-1.5 rounded text-black focus:outline-none focus:ring-2 focus:ring-teal-300 text-sm shadow-inner"
+          >
+
+          <button
+            type="button"
+            @click="clearSearch"
+            class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 sm:py-1.5 rounded text-sm font-bold transition whitespace-nowrap"
+          >
             クリア
           </button>
-          <button type="button" @click="refreshData" class="hidden sm:flex bg-amber-500 hover:bg-amber-600 px-4 py-1.5 rounded text-sm font-bold shadow items-center gap-1 transition whitespace-nowrap">
-            <span>🔄</span> 更新
+
+          <button
+            type="button"
+            @click="refreshData"
+            class="hidden sm:flex bg-amber-500 hover:bg-amber-600 px-4 py-1.5 rounded text-sm font-bold shadow items-center gap-1 transition whitespace-nowrap"
+          >
+            <span>🔄</span>
+            更新
           </button>
         </div>
       </div>
 
-      <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-        <button v-for="option in filterOptions" :key="option.value || 'all'" type="button" @click="activeWarehouse = option.value"
-          class="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition border shadow-sm"
-          :class="activeWarehouse === option.value ? 'bg-white text-teal-900 border-white' : 'bg-teal-900 text-white border-teal-600 hover:bg-teal-700'">
+      <div
+        class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar"
+        aria-label="倉庫フィルター"
+      >
+        <button
+          v-for="option in filterOptions"
+          :key="option.value || 'all'"
+          type="button"
+          @click="activeWarehouse = option.value"
+          class="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition shadow-sm"
+          :class="activeWarehouse === option.value
+            ? 'bg-white text-teal-900 border-white'
+            : 'bg-teal-900 text-white border-teal-600 hover:bg-teal-700'"
+        >
           {{ option.label }}（{{ option.count }}）
         </button>
       </div>
     </header>
 
-    <div v-if="isLoading" class="flex-1 flex flex-col items-center justify-center">
+    <div
+      v-if="isLoading"
+      class="flex-1 flex flex-col items-center justify-center"
+    >
       <div class="animate-spin h-12 w-12 border-4 border-teal-500 border-t-transparent rounded-full mb-4"></div>
-      <p class="text-gray-600 font-bold animate-pulse">データ同期中...</p>
+
+      <p class="text-gray-600 font-bold animate-pulse">
+        過去ログを読み込み中...
+      </p>
     </div>
-    <div v-else-if="error" class="m-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg font-bold">
+
+    <div
+      v-else-if="error"
+      class="m-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg font-bold"
+    >
       {{ error }}
     </div>
 
-    <main v-else class="flex-1 overflow-hidden flex flex-col md:flex-row p-2 sm:p-4 gap-4 pb-[70px] sm:pb-20">
-      
-      <section class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col w-full md:w-1/3 lg:w-1/4 h-full transition-all"
-               :class="{'hidden md:flex': selectedItemNo}">
+    <main
+      v-else
+      class="flex-1 overflow-hidden flex flex-col md:flex-row p-2 sm:p-4 gap-4 pb-[70px] sm:pb-20"
+    >
+      <section
+        class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col w-full md:w-1/3 lg:w-1/4 h-full transition-all"
+        :class="{ 'hidden md:flex': selectedItemNo }"
+      >
         <div class="bg-slate-50 border-b border-gray-200 px-4 py-3 shrink-0 flex justify-between items-center rounded-t-xl">
-          <h2 class="font-bold text-gray-700 text-sm">📦 アイテム一覧</h2>
-          <span class="text-xs bg-teal-100 text-teal-800 px-2 py-1 rounded-full font-bold">{{ itemsList.length }}件</span>
+          <div>
+            <h2 class="font-bold text-gray-700 text-sm">
+              📦 アイテム一覧
+            </h2>
+            <p class="text-[11px] text-gray-400 font-bold mt-0.5">
+              整理No.ごとの推定現在地
+            </p>
+          </div>
+
+          <span class="text-xs bg-teal-100 text-teal-800 px-2 py-1 rounded-full font-bold">
+            {{ itemsList.length }}件
+          </span>
         </div>
-        
+
         <div class="overflow-y-auto flex-1 p-2 space-y-2">
-          <div v-if="itemsList.length === 0" class="text-center py-10 text-sm text-gray-400 font-bold">データがありません</div>
-          
-          <button v-for="item in itemsList" :key="item.no" @click="selectedItemNo = item.no"
+          <div
+            v-if="warehouseLogs.length === 0"
+            class="m-2 bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg text-sm font-bold leading-relaxed"
+          >
+            作業内容に対象倉庫名を含む履歴がありません。<br>
+            作業内容へ「京浜島倉庫」「アラックス倉庫」「本社裏倉庫」などを入力後、更新してください。
+          </div>
+
+          <div
+            v-else-if="itemsList.length === 0"
+            class="text-center py-10 text-sm text-gray-400 font-bold"
+          >
+            条件に一致するアイテムがありません
+          </div>
+
+          <button
+            v-for="item in itemsList"
+            :key="item.no"
+            type="button"
+            @click="selectedItemNo = item.no"
             class="w-full text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none"
-            :class="selectedItemNo === item.no ? 'border-teal-500 bg-teal-50 shadow-md ring-1 ring-teal-500' : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50 active:bg-gray-100'">
-            <div class="flex justify-between items-start mb-1">
-              <span class="font-black text-blue-900 text-sm">{{ item.no }}</span>
-              <span class="flex h-3 w-3 relative">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="item.latestStatus === '完了' ? 'bg-gray-400' : 'bg-green-400'"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3" :class="item.latestStatus === '完了' ? 'bg-gray-500' : 'bg-green-500'"></span>
+            :class="selectedItemNo === item.no
+              ? 'border-teal-500 bg-teal-50 shadow-md ring-1 ring-teal-500'
+              : 'border-gray-200 hover:border-teal-300 hover:bg-gray-50 active:bg-gray-100'"
+          >
+            <div class="flex justify-between items-start gap-2 mb-1">
+              <span class="font-black text-blue-900 text-sm tracking-wide truncate">
+                {{ item.no }}
+              </span>
+
+              <span class="flex h-3 w-3 relative shrink-0 mt-1">
+                <span
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  :class="item.latestStatus === '完了' ? 'bg-gray-400' : 'bg-green-400'"
+                ></span>
+                <span
+                  class="relative inline-flex rounded-full h-3 w-3"
+                  :class="item.latestStatus === '完了' ? 'bg-gray-500' : 'bg-green-500'"
+                ></span>
               </span>
             </div>
-            <div class="text-xs text-gray-600 font-bold truncate mb-2">{{ item.customer }}</div>
-            <div class="flex items-center text-xs font-bold text-gray-500">
-              <span class="bg-slate-200 px-2 py-0.5 rounded text-slate-700 mr-2">{{ item.latestWarehouse || '不明' }}</span>
+
+            <div class="text-xs text-gray-600 font-bold truncate mb-2">
+              {{ item.customer }}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+              <span
+                v-if="!activeWarehouse"
+                class="bg-slate-200 px-2 py-0.5 rounded text-slate-700"
+              >
+                {{ item.latestWarehouse || '不明' }}
+              </span>
+
+              <span
+                class="px-2 py-0.5 rounded border"
+                :class="actionTagClass(item.latestAction)"
+              >
+                {{ item.latestAction }}
+              </span>
+
+              <span class="text-gray-400 ml-auto">
+                {{ formatDateShort(item.latestDate) }}
+              </span>
             </div>
           </button>
         </div>
       </section>
 
-      <section class="flex-1 flex flex-col lg:flex-row gap-4 h-full overflow-hidden transition-all"
-               v-if="selectedItem"
-               :class="{'hidden md:flex': !selectedItemNo}">
-        
+      <section
+        v-if="selectedItem"
+        class="flex-1 flex flex-col lg:flex-row gap-4 h-full overflow-hidden transition-all"
+        :class="{ 'hidden md:flex': !selectedItemNo }"
+      >
         <div class="md:hidden bg-teal-700 text-white p-3 rounded-xl shadow flex items-center justify-between shrink-0">
-           <button @click="selectedItemNo = ''" class="font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1.5 rounded-lg active:bg-white/30">
-             ← リストに戻る
-           </button>
-           <span class="font-black text-sm truncate ml-2">{{ selectedItem.no }}</span>
+          <button
+            type="button"
+            @click="selectedItemNo = ''"
+            class="font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1.5 rounded-lg active:bg-white/30"
+          >
+            ← リストに戻る
+          </button>
+
+          <span class="font-black text-sm truncate ml-2">
+            {{ selectedItem.no }}
+          </span>
         </div>
 
         <div class="w-full lg:w-1/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col shrink-0 lg:h-full overflow-y-auto lg:overflow-hidden">
           <div class="bg-slate-50 border-b border-gray-200 px-4 py-3 shrink-0 rounded-t-xl hidden md:block">
-            <h2 class="font-bold text-gray-700 text-sm">🔍 詳細・現在地</h2>
+            <h2 class="font-bold text-gray-700 text-sm">
+              🔍 詳細・現在地
+            </h2>
           </div>
-          
+
           <div class="p-4 flex-1 lg:overflow-y-auto">
-            <div class="bg-blue-50/70 p-4 rounded-xl border border-blue-100 mb-6 shadow-sm">
-              <h3 class="text-xl md:text-2xl font-black text-blue-900 mb-3 border-b border-blue-200 pb-2">{{ selectedItem.no }}</h3>
-              <div class="space-y-2 text-sm font-bold text-gray-700">
-                <p class="flex items-center gap-2"><span>🏢</span> {{ selectedItem.customer }}</p>
-                <p class="flex items-center gap-2" v-if="selectedItem.output"><span>⚡</span> 出力: {{ selectedItem.output }}</p>
+            <div class="bg-blue-50/70 p-4 rounded-xl border border-blue-100 mb-5 shadow-sm">
+              <div class="flex items-start justify-between gap-2 border-b border-blue-200 pb-2 mb-3">
+                <h3 class="text-xl md:text-2xl font-black text-blue-900 tracking-wider break-all">
+                  {{ selectedItem.no }}
+                </h3>
+
+                <span class="text-[10px] font-black text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded-full whitespace-nowrap">
+                  推定
+                </span>
               </div>
-              <div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border" :class="statusClass(selectedItem.latestStatus)">
-                最終確認: {{ selectedItem.latestStatus || '情報なし' }}
+
+              <div class="space-y-2 text-sm font-bold text-gray-700">
+                <p class="flex items-start gap-2">
+                  <span>🏢</span>
+                  <span class="break-words">{{ selectedItem.customer }}</span>
+                </p>
+
+                <p
+                  v-if="selectedItem.output"
+                  class="flex items-start gap-2"
+                >
+                  <span>⚡</span>
+                  <span>出力: {{ selectedItem.output }}</span>
+                </p>
+
+                <p class="flex items-start gap-2">
+                  <span>🕒</span>
+                  <span>最新: {{ formatDate(selectedItem.latestDate) }}</span>
+                </p>
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <span
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border"
+                  :class="statusClass(selectedItem.latestStatus)"
+                >
+                  最終確認: {{ selectedItem.latestStatus || '情報なし' }}
+                </span>
+
+                <span
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border"
+                  :class="actionTagClass(selectedItem.latestAction)"
+                >
+                  {{ selectedItem.latestAction }}
+                </span>
               </div>
             </div>
 
-            <h4 class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-1"><span>📍</span> Location Map</h4>
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                <span>📍</span>
+                Location Map
+              </h4>
+
+              <span class="text-[10px] text-gray-400 font-bold whitespace-nowrap">
+                作業内容から抽出
+              </span>
+            </div>
+
             <div class="grid grid-cols-1 gap-2 relative">
-              <div v-for="wName in warehouseNamesList" :key="wName"
+              <div
+                v-for="wName in warehouseNamesList"
+                :key="wName"
                 class="flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-300"
-                :class="selectedItem.latestWarehouse === wName ? 'border-teal-500 bg-teal-50 shadow-sm' : 'border-gray-200 bg-gray-50/50'">
-                <span class="font-bold text-sm" :class="selectedItem.latestWarehouse === wName ? 'text-teal-800' : 'text-gray-400'">
+                :class="selectedItem.latestWarehouse === wName
+                  ? 'border-teal-500 bg-teal-50 shadow-sm'
+                  : 'border-gray-200 bg-gray-50/50'"
+              >
+                <span
+                  class="font-bold text-sm"
+                  :class="selectedItem.latestWarehouse === wName
+                    ? 'text-teal-800'
+                    : 'text-gray-400'"
+                >
                   {{ wName }}
                 </span>
-                <span v-if="selectedItem.latestWarehouse === wName" class="flex h-3 w-3 relative">
+
+                <span
+                  v-if="selectedItem.latestWarehouse === wName"
+                  class="flex h-3 w-3 relative"
+                >
                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                   <span class="relative inline-flex rounded-full h-3 w-3 bg-teal-500"></span>
                 </span>
               </div>
-              <div v-if="!warehouseNamesList.includes(selectedItem.latestWarehouse) && selectedItem.latestWarehouse" class="flex items-center justify-between p-3 rounded-xl border-2 border-amber-400 bg-amber-50 shadow-sm mt-2">
-                <span class="font-bold text-sm text-amber-800">{{ selectedItem.latestWarehouse }}</span>
-                <span class="text-amber-600 text-xs font-black border border-amber-300 px-2 py-0.5 rounded bg-white">イレギュラー</span>
+
+              <div
+                v-if="!warehouseNamesList.includes(selectedItem.latestWarehouse) && selectedItem.latestWarehouse"
+                class="flex items-center justify-between p-3 rounded-xl border-2 border-amber-400 bg-amber-50 shadow-sm mt-2"
+              >
+                <span class="font-bold text-sm text-amber-800">
+                  {{ selectedItem.latestWarehouse }}
+                </span>
+
+                <span class="text-amber-600 text-xs font-black border border-amber-300 px-2 py-0.5 rounded bg-white">
+                  イレギュラー
+                </span>
               </div>
+            </div>
+
+            <div class="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-bold leading-relaxed">
+              ※ 現時点では、作業内容の文章から倉庫名を抽出して現在地を推定しています。<br>
+              v4.0以降で「現在地」「移動元」「移動先」を項目化すると、判定精度をさらに上げられます。
             </div>
           </div>
         </div>
 
         <div class="flex-1 lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
           <div class="bg-slate-50 border-b border-gray-200 px-4 py-3 shrink-0 flex justify-between items-center rounded-t-xl hidden md:flex">
-            <h2 class="font-bold text-gray-700 text-sm">📜 移動・作業履歴</h2>
-            <span class="text-xs text-gray-500 font-bold">全 {{ selectedItem.logs.length }} 件</span>
+            <div>
+              <h2 class="font-bold text-gray-700 text-sm">
+                📜 移動・作業履歴
+              </h2>
+              <p class="text-[11px] text-gray-400 font-bold mt-0.5">
+                同じ整理No.の倉庫関連ログを新しい順に表示
+              </p>
+            </div>
+
+            <span class="text-xs text-gray-500 font-bold">
+              全 {{ selectedItem.logs.length }} 件
+            </span>
           </div>
 
           <div class="flex-1 overflow-y-auto bg-gray-50/30">
             <div class="md:hidden divide-y divide-gray-100">
               <div class="bg-slate-50 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
-                 <span class="text-xs font-bold text-gray-500">履歴リスト</span>
-                 <span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">{{ selectedItem.logs.length }}件</span>
+                <span class="text-xs font-bold text-gray-500">
+                  履歴リスト
+                </span>
+
+                <span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">
+                  {{ selectedItem.logs.length }}件
+                </span>
               </div>
-              <div v-for="(log, index) in selectedItem.logs" :key="'mob-'+index" class="p-4 bg-white active:bg-gray-50 transition">
-                <div class="flex justify-between items-center text-xs mb-2">
-                  <span class="text-gray-500 font-bold bg-gray-100 px-2 py-1 rounded">{{ formatDate(getDateValue(log)) }}</span>
-                  <span class="font-bold px-2 py-1 rounded border" :class="index === 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-teal-50 text-teal-800 border-teal-100'">
-                    {{ getWarehouseName(log) || '不明' }}
+
+              <div
+                v-for="(log, index) in selectedItem.logs"
+                :key="'mob-' + index"
+                class="p-4 bg-white active:bg-gray-50 transition"
+              >
+                <div class="flex justify-between items-center text-xs mb-2 gap-2">
+                  <span class="text-gray-500 font-bold bg-gray-100 px-2 py-1 rounded">
+                    {{ formatDate(getDateValue(log)) }}
+                  </span>
+
+                  <div class="flex items-center gap-1 shrink-0">
+                    <span
+                      v-if="index === 0"
+                      class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-black border border-red-200"
+                    >
+                      LATEST
+                    </span>
+
+                    <span
+                      class="font-bold px-2 py-1 rounded border"
+                      :class="index === 0
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : 'bg-teal-50 text-teal-800 border-teal-100'"
+                    >
+                      {{ log.__warehouse || '不明' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                  <span
+                    class="text-[11px] font-bold px-2 py-0.5 rounded border"
+                    :class="actionTagClass(log.__actionTag)"
+                  >
+                    {{ log.__actionTag }}
+                  </span>
+
+                  <span class="text-[11px] text-gray-400 font-bold">
+                    作業内容から抽出
                   </span>
                 </div>
-                <div class="text-sm font-black text-gray-800 mb-2 leading-relaxed">
+
+                <div class="text-sm font-black text-gray-800 mb-2 leading-relaxed whitespace-pre-wrap break-words">
                   {{ textOrDash(log['作業内容']) }}
                 </div>
-                <div class="flex justify-between items-end">
-                  <div class="flex items-center gap-1.5">
-                    <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-black text-blue-800 border border-blue-200">
-                      {{ (log['担当'] || '?').charAt(0) }}
-                    </div>
-                    <span class="text-xs font-bold text-gray-600">{{ textOrDash(log['担当']) }}</span>
+
+                <div class="grid grid-cols-1 gap-2 text-xs">
+                  <div class="flex justify-between gap-2">
+                    <span class="text-gray-400 font-bold">担当</span>
+                    <span class="font-bold text-gray-700">{{ textOrDash(log['担当']) }}</span>
                   </div>
-                  <span class="text-[11px] text-gray-400 font-bold max-w-[120px] truncate" :title="getNoteValue(log)">
-                    {{ getNoteValue(log) || '備考なし' }}
-                  </span>
+
+                  <div class="flex justify-between gap-2">
+                    <span class="text-gray-400 font-bold">完了確認</span>
+                    <span
+                      class="inline-block px-2 py-0.5 rounded border text-[11px] font-bold"
+                      :class="statusClass(log['完了確認'])"
+                    >
+                      {{ textOrDash(log['完了確認']) }}
+                    </span>
+                  </div>
+
+                  <div class="pt-2 border-t border-gray-100">
+                    <p class="text-gray-400 font-bold mb-1">備考</p>
+                    <p class="text-gray-600 whitespace-pre-wrap break-words">
+                      {{ textOrDash(getNoteValue(log)) }}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -187,35 +495,81 @@
             <table class="hidden md:table w-full text-left border-collapse text-sm">
               <thead class="bg-gray-100 text-gray-600 sticky-table-header shadow-sm">
                 <tr>
-                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">日時</th>
-                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">場所・作業</th>
-                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">担当</th>
-                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">備考</th>
+                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
+                    日時
+                  </th>
+
+                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
+                    推定場所・作業
+                  </th>
+
+                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
+                    担当
+                  </th>
+
+                  <th class="p-3 font-bold whitespace-nowrap border-b border-gray-200 text-xs uppercase tracking-wider">
+                    備考
+                  </th>
                 </tr>
               </thead>
+
               <tbody class="divide-y divide-gray-100 bg-white">
-                <tr v-for="(log, index) in selectedItem.logs" :key="'pc-'+index" class="hover:bg-teal-50/50 transition-colors">
+                <tr
+                  v-for="(log, index) in selectedItem.logs"
+                  :key="'pc-' + index"
+                  class="hover:bg-teal-50/50 transition-colors"
+                >
                   <td class="p-3 align-top whitespace-nowrap text-gray-500 font-bold text-xs">
                     {{ formatDate(getDateValue(log)) }}
                   </td>
+
                   <td class="p-3 align-top">
-                    <div class="font-bold mb-1 flex items-center gap-2" :class="index === 0 ? 'text-red-700' : 'text-teal-800'">
-                      <span v-if="index === 0" class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-black border border-red-200">LATEST</span>
-                      {{ getWarehouseName(log) || '不明' }}
+                    <div
+                      class="font-bold mb-1 flex items-center gap-2 flex-wrap"
+                      :class="index === 0 ? 'text-red-700' : 'text-teal-800'"
+                    >
+                      <span
+                        v-if="index === 0"
+                        class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-black border border-red-200"
+                      >
+                        LATEST
+                      </span>
+
+                      <span>{{ log.__warehouse || '不明' }}</span>
+
+                      <span
+                        class="text-[10px] px-2 py-0.5 rounded border"
+                        :class="actionTagClass(log.__actionTag)"
+                      >
+                        {{ log.__actionTag }}
+                      </span>
+
+                      <span class="text-[10px] text-gray-400 font-bold">
+                        推定
+                      </span>
                     </div>
-                    <div class="text-xs text-gray-700 font-bold leading-relaxed whitespace-pre-wrap">
+
+                    <div class="text-xs text-gray-700 font-bold leading-relaxed whitespace-pre-wrap break-words">
                       {{ textOrDash(log['作業内容']) }}
                     </div>
                   </td>
+
                   <td class="p-3 align-top whitespace-nowrap">
                     <div class="flex items-center gap-2">
                       <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-700 border border-slate-300">
-                        {{ (log['担当'] || '?').charAt(0) }}
+                        {{ getPersonInitial(log['担当']) }}
                       </div>
-                      <span class="font-bold text-gray-700 text-xs">{{ textOrDash(log['担当']) }}</span>
+
+                      <span class="font-bold text-gray-700 text-xs">
+                        {{ textOrDash(log['担当']) }}
+                      </span>
                     </div>
                   </td>
-                  <td class="p-3 align-top text-xs text-gray-500 font-bold max-w-[150px] truncate" :title="getNoteValue(log)">
+
+                  <td
+                    class="p-3 align-top text-xs text-gray-500 font-bold max-w-[220px] truncate"
+                    :title="getNoteValue(log)"
+                  >
                     {{ textOrDash(getNoteValue(log)) }}
                   </td>
                 </tr>
@@ -225,47 +579,267 @@
         </div>
       </section>
 
-      <div v-if="!selectedItem && !isLoading" class="hidden md:flex flex-1 items-center justify-center bg-transparent border-2 border-dashed border-gray-300 rounded-xl">
+      <div
+        v-if="!selectedItem && !isLoading"
+        class="hidden md:flex flex-1 items-center justify-center bg-transparent border-2 border-dashed border-gray-300 rounded-xl"
+      >
         <div class="text-center text-gray-400">
           <div class="text-5xl mb-4 opacity-50">👈</div>
-          <p class="font-bold text-lg text-gray-500">左のリストからアイテムを選択してください</p>
+
+          <p class="font-bold text-lg text-gray-500">
+            左のリストからアイテムを選択してください
+          </p>
+
+          <p class="text-sm mt-2 font-bold">
+            該当アイテム: {{ itemsList.length }}件 / 倉庫関連履歴: {{ warehouseLogs.length }}件
+          </p>
         </div>
       </div>
-
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 w-full max-w-[1600px] mx-auto bg-white border-t border-gray-200 flex justify-around z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] pb-safe">
-      <a href="index.html" class="flex flex-col items-center justify-center w-1/3 py-2 text-gray-400 font-bold text-xs sm:text-sm hover:text-teal-600 transition">
-        <span class="text-lg sm:mb-1">📋</span>
-        <span class="hidden sm:inline">今日の作業</span>
+    <nav class="fixed bottom-0 left-0 right-0 w-full max-w-[1600px] mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] pb-safe">
+      <a
+        href="index.html"
+        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-r border-gray-200 font-bold text-sm sm:text-lg hover:bg-gray-50 transition"
+      >
+        今日の作業
       </a>
-      <a href="past.html" class="flex flex-col items-center justify-center w-1/3 py-2 text-teal-700 bg-teal-50 border-t-2 border-teal-600 font-bold text-xs sm:text-sm transition">
-        <span class="text-lg sm:mb-1">🔍</span>
-        <span class="hidden sm:inline">過去検索</span>
+
+      <a
+        href="past.html"
+        class="flex items-center justify-center w-1/3 py-2 text-teal-700 bg-teal-50 font-bold text-sm sm:text-lg border-t-4 border-teal-700 transition"
+      >
+        過去検索
       </a>
-      <a href="tools.html" class="flex flex-col items-center justify-center w-1/3 py-2 text-gray-400 font-bold text-xs sm:text-sm hover:text-teal-600 transition">
-        <span class="text-lg sm:mb-1">🛠</span>
-        <span class="hidden sm:inline">業務ツール</span>
+
+      <a
+        href="tools.html"
+        class="flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-sm sm:text-lg hover:bg-gray-50 transition"
+      >
+        業務ツール
       </a>
     </nav>
   </div>
 
   <script>
-    const { createApp, ref, computed, watch, onMounted } = Vue;
-    const API_URL = "https://script.google.com/macros/s/AKfycbxVOgnDwBg-VwK6kZSZ8GbYnTykbALW-KPiBLoTO4z0t9O16QWBlFVXlLWL-xCF0dLj/exec";
-    const CACHE_KEY = "sec_warehouse_logs_cache_v2"; // キャッシュキーを更新
-    
-    const WAREHOUSE_NAMES = ["京浜島倉庫", "アラックス倉庫", "本社裏倉庫"];
+    const {
+      createApp,
+      ref,
+      computed,
+      watch,
+      onMounted
+    } = Vue;
 
+    const API_URL =
+      "https://script.google.com/macros/s/AKfycbxVOgnDwBg-VwK6kZSZ8GbYnTykbALW-KPiBLoTO4z0t9O16QWBlFVXlLWL-xCF0dLj/exec";
+
+    const CACHE_KEY = "sec_warehouse_logs_cache_v4";
+
+    const WAREHOUSE_DEFS = [
+      {
+        name: "京浜島倉庫",
+        aliases: [
+          "京浜島倉庫",
+          "京浜島"
+        ]
+      },
+      {
+        name: "アラックス倉庫",
+        aliases: [
+          "アラックス倉庫",
+          "アラックス"
+        ]
+      },
+      {
+        name: "本社裏倉庫",
+        aliases: [
+          "本社裏倉庫",
+          "本社裏"
+        ]
+      }
+    ];
+
+    const WAREHOUSE_NAMES = WAREHOUSE_DEFS.map((warehouse) => warehouse.name);
+
+    /**
+     * 検索・比較用の文字列正規化。
+     *
+     * NFKCでは①→1、②→2などの変換が行われるため、
+     * 整理No.の表示には使用しない。
+     */
     function normalizeText(value) {
-      return String(value ?? "").normalize("NFKC").trim();
+      return String(value ?? "")
+        .normalize("NFKC")
+        .trim();
     }
+
+    /**
+     * 表示用の文字列整形。
+     *
+     * Unicode正規化を行わず、①・②・⓪などの
+     * 丸数字を元の文字のまま保持する。
+     */
     function preserveText(value) {
       return String(value ?? "").trim();
     }
+
+    function getWarehouseCandidates(text) {
+      const workText = normalizeText(text);
+
+      if (!workText) {
+        return [];
+      }
+
+      const candidates = [];
+
+      WAREHOUSE_DEFS.forEach((warehouse) => {
+        warehouse.aliases.forEach((alias) => {
+          const normalizedAlias = normalizeText(alias);
+          let index = workText.indexOf(normalizedAlias);
+
+          while (index !== -1) {
+            candidates.push({
+              name: warehouse.name,
+              alias: normalizedAlias,
+              index,
+              endIndex: index + normalizedAlias.length
+            });
+
+            index = workText.indexOf(
+              normalizedAlias,
+              index + normalizedAlias.length
+            );
+          }
+        });
+      });
+
+      return candidates.sort((a, b) => {
+        if (a.index !== b.index) {
+          return a.index - b.index;
+        }
+
+        return b.alias.length - a.alias.length;
+      });
+    }
+
+    function uniqueWarehouseNames(candidates) {
+      return Array.from(new Set(
+        candidates.map((candidate) => candidate.name)
+      ));
+    }
+
+    /**
+     * 作業内容から倉庫名を推定する。
+     *
+     * 例：
+     * - 「京浜島倉庫で部品清掃」 → 京浜島倉庫
+     * - 「京浜島倉庫からアラックス倉庫へ移動」 → アラックス倉庫を優先
+     *
+     * ただし、現時点では自由記述からの推定なので、
+     * v4.0以降は現在地・移動元・移動先の項目化が理想。
+     */
+    function extractWarehouseNameFromText(text) {
+      const workText = normalizeText(text);
+      const candidates = getWarehouseCandidates(workText);
+
+      if (candidates.length === 0) {
+        return "";
+      }
+
+      const uniqueNames = uniqueWarehouseNames(candidates);
+
+      if (uniqueNames.length === 1) {
+        return uniqueNames[0];
+      }
+
+      const scored = candidates.map((candidate) => {
+        const before = workText.slice(
+          Math.max(0, candidate.index - 16),
+          candidate.index
+        );
+
+        const after = workText.slice(
+          candidate.endIndex,
+          candidate.endIndex + 20
+        );
+
+        let score = 0;
+
+        // 「移動先：アラックス」「搬入先：京浜島」などを優先
+        if (/移動先|搬入先|入庫先|保管先|格納先|置き場/.test(before)) {
+          score += 14;
+        }
+
+        // 「アラックスへ」「京浜島に」「本社裏まで」など、移動先らしい表現を優先
+        if (/へ|に|まで|入庫|搬入|持込|持ち込|保管|格納|置き/.test(after)) {
+          score += 10;
+        }
+
+        // 「京浜島から」は移動元の可能性が高いので弱める
+        if (/から|より/.test(after)) {
+          score -= 10;
+        }
+
+        // 「移動元：京浜島」「搬出元：アラックス」なども弱める
+        if (/移動元|搬出元|出庫元/.test(before)) {
+          score -= 8;
+        }
+
+        // 複数倉庫名が出る文章では、後ろ側が移動先になりやすいので少し優先
+        score += candidate.index * 0.01;
+
+        // 正式名称の方を少し優先
+        score += candidate.alias.length * 0.001;
+
+        return {
+          ...candidate,
+          score
+        };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+
+      return scored[0]?.name || "";
+    }
+
     function getWarehouseName(log) {
-      const workText = normalizeText(log && log["作業内容"]);
-      return WAREHOUSE_NAMES.find((name) => workText.includes(normalizeText(name))) || "";
+      return extractWarehouseNameFromText(
+        log && log["作業内容"]
+      );
+    }
+
+    function extractActionTag(text) {
+      const value = normalizeText(text);
+
+      if (!value) {
+        return "記録";
+      }
+
+      if (/清掃|洗浄|片付|片づ|整理|部品清掃/.test(value)) {
+        return "清掃";
+      }
+
+      if (/移動|移設|移管|移す|移し|移送|移動先|移動元/.test(value)) {
+        return "移動";
+      }
+
+      if (/持ち込み|持込|搬入|入庫|入れ|保管|置き場|格納/.test(value)) {
+        return "入庫系";
+      }
+
+      if (/持ち出し|持出|搬出|出庫|引取|引き取り|返却|発送|出荷/.test(value)) {
+        return "出庫系";
+      }
+
+      if (/確認|点検|検査|チェック|見直し|確認済/.test(value)) {
+        return "確認";
+      }
+
+      if (/修理|加工|作業|分解|組立|組み立て/.test(value)) {
+        return "作業";
+      }
+
+      return "記録";
     }
 
     createApp({
@@ -273,179 +847,454 @@
         const allLogs = ref([]);
         const searchQuery = ref("");
         const activeWarehouse = ref("");
+        const selectedItemNo = ref("");
         const isLoading = ref(true);
         const error = ref("");
-        
-        const selectedItemNo = ref("");
+
         const warehouseNamesList = WAREHOUSE_NAMES;
 
-        const getDateValue = (log) => log["TS"] || log["タイムスタンプ"] || log["日付"] || "";
+        const getDateValue = (log) =>
+          log["TS"] ||
+          log["タイムスタンプ"] ||
+          log["日付"] ||
+          "";
+
         const parseDateTime = (value) => {
           const text = normalizeText(value);
-          if (!text) return null;
-          const date = new Date(text.replace(/-/g, "/"));
-          return Number.isNaN(date.getTime()) ? null : date;
-        };
-        const getLogTime = (log) => {
-          const date = parseDateTime(getDateValue(log));
-          return date ? date.getTime() : 0;
-        };
-        const formatDate = (value) => {
-          const text = normalizeText(value);
-          if(!text) return "日付不明";
-          const parts = text.split(" ");
-          if(parts.length > 1) {
-              const time = parts[1].split(":").slice(0,2).join(":"); 
-              return `${parts[0]} ${time}`;
+
+          if (!text) {
+            return null;
           }
-          return parts[0];
+
+          const normalizedDateText = text
+            .replace(/-/g, "/")
+            .replace("T", " ")
+            .replace(/\.\d+Z$/, "");
+
+          const date = new Date(normalizedDateText);
+
+          return Number.isNaN(date.getTime())
+            ? null
+            : date;
         };
+
+        const getLogTime = (log) => {
+          const date = parseDateTime(
+            getDateValue(log)
+          );
+
+          return date
+            ? date.getTime()
+            : 0;
+        };
+
+        const formatDate = (value) => {
+          const text = preserveText(value);
+
+          if (!text) {
+            return "日付不明";
+          }
+
+          const normalizedText = text.replace("T", " ");
+          const parts = normalizedText.split(/\s+/);
+          const datePart = parts[0] || "";
+          const timePart = parts[1] || "";
+
+          if (datePart && timePart) {
+            const shortTime = timePart
+              .split(":")
+              .slice(0, 2)
+              .join(":");
+
+            return `${datePart} ${shortTime}`;
+          }
+
+          return datePart || "日付不明";
+        };
+
+        const formatDateShort = (value) => {
+          const formatted = formatDate(value);
+
+          if (formatted === "日付不明") {
+            return formatted;
+          }
+
+          const parts = formatted.split(/\s+/);
+
+          return parts[1] || parts[0] || formatted;
+        };
+
+        /**
+         * 整理No.はUnicode正規化を行わず、
+         * DBから受け取った丸数字をそのまま表示する。
+         */
         const getManagementNo = (log) => {
-          const value = preserveText(log["整理№"] ?? log["整理No"] ?? log["整理No."] ?? "");
-          return value || "不明";
+          const value = preserveText(
+            log["整理№"] ??
+            log["整理No"] ??
+            log["整理No."] ??
+            ""
+          );
+
+          return value || "整理Noなし";
         };
-        const getNoteValue = (log) => log["備考（引継ぎ・進捗状況等）"] || log["備考"] || "";
+
+        const getNoteValue = (log) =>
+          log["備考（引継ぎ・進捗状況等）"] ||
+          log["備考"] ||
+          "";
+
         const getOutputValue = (log) => {
-          const candidates = [log["出"], log["出力"], log["出力(kW)"], log["容量"], log["容量(kW)"]];
+          const candidates = [
+            log["出"],
+            log["出力"],
+            log["出力(kW)"],
+            log["容量"],
+            log["容量(kW)"]
+          ];
+
           for (const candidate of candidates) {
             const text = normalizeText(candidate);
-            if (!text || /^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(text)) continue;
-            return text;
+
+            if (!text) {
+              continue;
+            }
+
+            // 日付っぽい値は出力として扱わない
+            if (/^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(text)) {
+              continue;
+            }
+
+            return preserveText(candidate);
           }
+
           return "";
         };
-        const textOrDash = (value) => normalizeText(value) || "—";
+
+        const textOrDash = (value) =>
+          preserveText(value) || "—";
+
+        const getPersonInitial = (value) => {
+          const text = preserveText(value);
+
+          return text
+            ? text.charAt(0)
+            : "?";
+        };
+
         const statusClass = (status) => {
           const value = normalizeText(status);
-          if (value === "完了") return "bg-gray-100 text-gray-600 border-gray-300";
-          if (value === "完了予定") return "bg-yellow-50 text-yellow-700 border-yellow-300";
-          if (value === "繰越") return "bg-red-50 text-red-700 border-red-300";
-          return "bg-white text-teal-700 border-teal-300";
+
+          if (value === "完了") {
+            return "bg-gray-600 text-white border-gray-600";
+          }
+
+          if (value === "完了予定") {
+            return "bg-yellow-100 text-yellow-800 border-yellow-300";
+          }
+
+          if (value === "繰越") {
+            return "bg-red-50 text-red-700 border-red-300";
+          }
+
+          return "bg-white text-gray-600 border-gray-300";
+        };
+
+        const actionTagClass = (tag) => {
+          const value = normalizeText(tag);
+
+          if (value === "入庫系") {
+            return "bg-emerald-50 text-emerald-700 border-emerald-200";
+          }
+
+          if (value === "出庫系") {
+            return "bg-orange-50 text-orange-700 border-orange-200";
+          }
+
+          if (value === "移動") {
+            return "bg-blue-50 text-blue-700 border-blue-200";
+          }
+
+          if (value === "清掃") {
+            return "bg-cyan-50 text-cyan-700 border-cyan-200";
+          }
+
+          if (value === "確認") {
+            return "bg-purple-50 text-purple-700 border-purple-200";
+          }
+
+          if (value === "作業") {
+            return "bg-slate-50 text-slate-700 border-slate-200";
+          }
+
+          return "bg-gray-50 text-gray-600 border-gray-200";
         };
 
         const warehouseLogs = computed(() =>
           allLogs.value
-            .filter((log) => getWarehouseName(log))
-            .slice()
-            .sort((a, b) => getLogTime(b) - getLogTime(a))
+            .map((log) => {
+              const warehouse = getWarehouseName(log);
+              const actionTag = extractActionTag(log["作業内容"]);
+
+              return {
+                ...log,
+                __warehouse: warehouse,
+                __actionTag: actionTag,
+                __time: getLogTime(log)
+              };
+            })
+            .filter((log) => log.__warehouse)
+            .sort((a, b) => b.__time - a.__time)
         );
 
-        const filterOptions = computed(() => [
-          { label: "すべて", value: "", count: warehouseLogs.value.length },
-          ...WAREHOUSE_NAMES.map((name) => ({
-            label: name,
-            value: name,
-            count: warehouseLogs.value.filter((log) => getWarehouseName(log) === name).length
-          }))
-        ]);
-
-        const itemsList = computed(() => {
-          const searchWords = normalizeText(searchQuery.value).toLowerCase().replace(/ /g, " ").split(/\s+/).filter(Boolean);
+        const baseItems = computed(() => {
           const itemsMap = new Map();
 
           warehouseLogs.value.forEach((log) => {
-            const wName = getWarehouseName(log);
-            if (activeWarehouse.value && wName !== activeWarehouse.value) return;
+            const managementNo = getManagementNo(log);
 
-            const searchableText = normalizeText([
-              getManagementNo(log), log["顧客名"], log["作業内容"], log["担当"], getDateValue(log), getNoteValue(log), wName
-            ].join(" ")).toLowerCase();
-
-            if (searchWords.length && !searchWords.every((word) => searchableText.includes(word))) return;
-
-            const no = getManagementNo(log);
-            if (!itemsMap.has(no)) {
-              itemsMap.set(no, {
-                no: no,
-                customer: textOrDash(log['顧客名']),
+            if (!itemsMap.has(managementNo)) {
+              itemsMap.set(managementNo, {
+                no: managementNo,
+                customer: textOrDash(log["顧客名"]),
                 output: getOutputValue(log),
-                latestWarehouse: wName, 
-                latestStatus: normalizeText(log['完了確認']),
+                latestWarehouse: log.__warehouse,
+                latestStatus: normalizeText(log["完了確認"]),
+                latestAction: log.__actionTag,
+                latestDate: getDateValue(log),
+                latestNote: getNoteValue(log),
                 logs: []
               });
             }
-            itemsMap.get(no).logs.push(log);
+
+            itemsMap.get(managementNo).logs.push(log);
           });
 
           return Array.from(itemsMap.values());
         });
 
+        const searchWords = computed(() =>
+          normalizeText(searchQuery.value)
+            .toLowerCase()
+            .replace(/　/g, " ")
+            .split(/\s+/)
+            .filter(Boolean)
+        );
+
+        const itemMatchesSearch = (item) => {
+          if (searchWords.value.length === 0) {
+            return true;
+          }
+
+          const logsText = item.logs.map((log) => [
+            getManagementNo(log),
+            log["顧客名"],
+            log["作業内容"],
+            log["担当"],
+            log["完了確認"],
+            getDateValue(log),
+            getNoteValue(log),
+            log.__warehouse,
+            log.__actionTag
+          ].join(" ")).join(" ");
+
+          /*
+           * 検索時はNFKC正規化する。
+           *
+           * これにより検索欄へ「25004731」と入力しても、
+           * 表示値が「2500473①」のレコードを検索できる。
+           * 表示値そのものは変更しない。
+           */
+          const searchableText = normalizeText([
+            item.no,
+            item.customer,
+            item.output,
+            item.latestWarehouse,
+            item.latestStatus,
+            item.latestAction,
+            item.latestDate,
+            item.latestNote,
+            logsText
+          ].join(" ")).toLowerCase();
+
+          return searchWords.value.every((word) =>
+            searchableText.includes(word)
+          );
+        };
+
+        const searchMatchedItems = computed(() =>
+          baseItems.value.filter((item) => itemMatchesSearch(item))
+        );
+
+        const filterOptions = computed(() => [
+          {
+            label: "すべて",
+            value: "",
+            count: searchMatchedItems.value.length
+          },
+          ...WAREHOUSE_NAMES.map((name) => ({
+            label: name,
+            value: name,
+            count: searchMatchedItems.value.filter(
+              (item) => item.latestWarehouse === name
+            ).length
+          }))
+        ]);
+
+        const itemsList = computed(() =>
+          searchMatchedItems.value.filter((item) => {
+            if (
+              activeWarehouse.value &&
+              item.latestWarehouse !== activeWarehouse.value
+            ) {
+              return false;
+            }
+
+            return true;
+          })
+        );
+
         const selectedItem = computed(() => {
-          if (!selectedItemNo.value) return null;
-          return itemsList.value.find(item => item.no === selectedItemNo.value) || null;
+          if (!selectedItemNo.value) {
+            return null;
+          }
+
+          return itemsList.value.find(
+            (item) => item.no === selectedItemNo.value
+          ) || null;
         });
 
-        // 画面幅が広い（PC等）場合のみ、リスト更新時に先頭を自動選択する
         watch(itemsList, (newItems) => {
-          if (window.innerWidth >= 768) { // md breakpoint
-            if (newItems.length > 0) {
-              if (!newItems.find(i => i.no === selectedItemNo.value)) {
-                selectedItemNo.value = newItems[0].no;
-              }
-            } else {
-              selectedItemNo.value = "";
+          const selectedStillExists = newItems.some(
+            (item) => item.no === selectedItemNo.value
+          );
+
+          if (newItems.length === 0) {
+            selectedItemNo.value = "";
+            return;
+          }
+
+          if (window.innerWidth >= 768) {
+            if (!selectedStillExists) {
+              selectedItemNo.value = newItems[0].no;
             }
+          } else if (!selectedStillExists) {
+            selectedItemNo.value = "";
           }
         });
 
         const fetchAllData = async (forceRefresh = false) => {
           error.value = "";
+
           if (forceRefresh) {
             localStorage.removeItem(CACHE_KEY);
             allLogs.value = [];
             isLoading.value = true;
           } else {
             const cached = localStorage.getItem(CACHE_KEY);
+
             if (cached) {
               try {
                 const parsed = JSON.parse(cached);
+
                 if (Array.isArray(parsed)) {
                   allLogs.value = parsed;
                   isLoading.value = false;
                 }
-              } catch (e) {
+              } catch (cacheError) {
                 localStorage.removeItem(CACHE_KEY);
+
+                console.warn(
+                  "倉庫ログのキャッシュ読み込みに失敗しました。",
+                  cacheError
+                );
               }
             }
           }
 
           try {
-            const response = await fetch(`${API_URL}?_=${Date.now()}`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const response = await fetch(
+              `${API_URL}?_=${Date.now()}`
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `HTTP ${response.status}`
+              );
+            }
+
             const json = await response.json();
-            if (json.status !== "success" || !Array.isArray(json.data)) throw new Error(json.message || "データ取得失敗");
+
+            if (
+              json.status !== "success" ||
+              !Array.isArray(json.data)
+            ) {
+              throw new Error(
+                json.message ||
+                "過去ログAPIの返却形式が不正です。"
+              );
+            }
+
             allLogs.value = json.data;
-            localStorage.setItem(CACHE_KEY, JSON.stringify(json.data));
-          } catch (e) {
-            if (allLogs.value.length === 0) error.value = "過去ログの取得に失敗しました。";
+
+            localStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify(json.data)
+            );
+          } catch (fetchError) {
+            console.error(
+              "過去ログAPI通信エラー",
+              fetchError
+            );
+
+            if (allLogs.value.length === 0) {
+              error.value =
+                "過去ログの取得に失敗しました。通信状況を確認して更新してください。";
+            }
           } finally {
             isLoading.value = false;
           }
         };
 
-        const refreshData = () => fetchAllData(true);
-        const clearSearch = () => { searchQuery.value = ""; activeWarehouse.value = ""; };
+        const refreshData = () =>
+          fetchAllData(true);
 
-        onMounted(() => fetchAllData());
+        const clearSearch = () => {
+          searchQuery.value = "";
+          activeWarehouse.value = "";
+        };
+
+        onMounted(() => {
+          fetchAllData();
+        });
 
         return {
           searchQuery,
           activeWarehouse,
-          isLoading,
-          error,
-          itemsList,
           selectedItemNo,
           selectedItem,
+          isLoading,
+          error,
+          warehouseLogs,
+          itemsList,
           filterOptions,
           warehouseNamesList,
+
           refreshData,
           clearSearch,
+
           getWarehouseName,
           getDateValue,
+          getLogTime,
           formatDate,
+          formatDateShort,
+          getManagementNo,
           getNoteValue,
+          getOutputValue,
+          getPersonInitial,
           textOrDash,
-          statusClass
+          statusClass,
+          actionTagClass
         };
       }
     }).mount("#app");
