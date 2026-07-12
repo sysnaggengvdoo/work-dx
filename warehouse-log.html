@@ -344,7 +344,7 @@
 
         const expandedWarehouses = ref(
           WAREHOUSE_NAMES.reduce((result, name) => {
-            result[name] = true;
+            result[name] = false;
             return result;
           }, {})
         );
