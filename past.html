@@ -242,9 +242,12 @@
         // キャッシュ用キー
         const CACHE_KEY = "sec_past_logs_cache_v36";
 
+        // 倉庫作業で使用する固定整理No.
+        const WAREHOUSE_MANAGEMENT_NO = "9900000";
+
         // 過去検索から除外する整理No.
         const EXCLUDED_MANAGEMENT_NOS = new Set([
-          "9900000"
+          WAREHOUSE_MANAGEMENT_NO
         ]);
 
         const allLogs = ref([]);
@@ -256,6 +259,44 @@
         const formatDate = (val) => {
           if (!val) return "日付不明";
           return String(val).split(" ")[0];
+        };
+
+        /**
+         * 9900000の倉庫作業から、作業内容に記載された
+         * 7桁の実案件整理No.を抽出する。
+         *
+         * 全角数字だけを半角へ変換し、①などの丸数字は保持する。
+         * 同じ番号が複数回書かれていても、案件への追加は1回にする。
+         */
+        const extractRelatedManagementNos = (log) => {
+          const workText = String(
+            log["作業内容"] || ""
+          ).replace(/[０-９]/g, char =>
+            String.fromCharCode(
+              char.charCodeAt(0) - 0xFEE0
+            )
+          );
+
+          const relatedNos = [];
+          const managementNoPattern =
+            /(^|[^0-9])([0-9]{7}[①-⑳]?)(?![0-9])/g;
+
+          let match;
+
+          while (
+            (match = managementNoPattern.exec(workText)) !== null
+          ) {
+            const relatedNo = match[2];
+
+            if (
+              relatedNo !== WAREHOUSE_MANAGEMENT_NO &&
+              !relatedNos.includes(relatedNo)
+            ) {
+              relatedNos.push(relatedNo);
+            }
+          }
+
+          return relatedNos;
         };
 
         const getTantoLabel = (log) => {
@@ -448,6 +489,46 @@
         const groupedLogs = computed(() => {
           const groups = {};
 
+          const addLogToGroup = (
+            no,
+            log,
+            isRelatedWarehouseLog = false
+          ) => {
+            const outputValue = getOutputValue(log);
+            const customerValue = String(
+              log["顧客名"] || "未入力"
+            );
+
+            if (!groups[no]) {
+              groups[no] = {
+                no: no,
+                customer: customerValue,
+                output: outputValue,
+                records: [],
+                hasDirectRecord: !isRelatedWarehouseLog
+              };
+            } else if (
+              !isRelatedWarehouseLog &&
+              !groups[no].hasDirectRecord
+            ) {
+              /*
+               * 先に倉庫作業から案件グループが作られていても、
+               * 通常の案件履歴が見つかった時点で顧客名・出力を
+               * 本来の案件情報へ置き換える。
+               */
+              groups[no].customer = customerValue;
+              groups[no].output = outputValue;
+              groups[no].hasDirectRecord = true;
+            } else if (
+              !groups[no].output &&
+              outputValue
+            ) {
+              groups[no].output = outputValue;
+            }
+
+            groups[no].records.push(log);
+          };
+
           allLogs.value.forEach(log => {
             const no = String(
               log["整理№"] ||
@@ -456,29 +537,30 @@
               "Noなし"
             ).trim();
 
-            // 倉庫ログ用の整理No.は過去検索から除外
+            if (no === WAREHOUSE_MANAGEMENT_NO) {
+              /*
+               * 9900000自体は過去検索へ表示しない。
+               * 作業内容中の実案件整理No.へ同じ履歴を紐づける。
+               * 複数番号が書かれている場合は、各案件へ追加する。
+               */
+              extractRelatedManagementNos(log).forEach(
+                relatedNo => {
+                  addLogToGroup(
+                    relatedNo,
+                    log,
+                    true
+                  );
+                }
+              );
+
+              return;
+            }
+
             if (EXCLUDED_MANAGEMENT_NOS.has(no)) {
               return;
             }
 
-            const outputValue = getOutputValue(log);
-
-            if (!groups[no]) {
-              groups[no] = {
-                no: no,
-                customer: String(
-                  log["顧客名"] || "未入力"
-                ),
-                output: outputValue,
-                records: []
-              };
-            }
-
-            if (!groups[no].output && outputValue) {
-              groups[no].output = outputValue;
-            }
-
-            groups[no].records.push(log);
+            addLogToGroup(no, log);
           });
 
           Object.values(groups).forEach(group => {
