@@ -94,9 +94,18 @@
                   {{ group.no }}
                 </span>
 
-                <span class="bg-gray-600 px-2 py-1 rounded text-xs font-bold shrink-0">
-                  履歴 {{ group.records.length }}件
-                </span>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="bg-gray-600 px-2 py-1 rounded text-xs font-bold">
+                    履歴 {{ group.records.length }}件
+                  </span>
+
+                  <span
+                    v-if="calcLeadTimeText(group)"
+                    class="bg-purple-600 px-2 py-1 rounded text-xs font-bold text-white"
+                  >
+                    LT: {{ calcLeadTimeText(group) }}
+                  </span>
+                </div>
               </div>
 
               <div class="border-t border-gray-600"></div>
@@ -345,6 +354,21 @@
           return date;
         };
 
+        // 日付だけを比較するため、時刻を00:00:00に揃える
+        const parseDateOnly = (val) => {
+          const dateTime = parseDateTime(val);
+
+          if (!dateTime) {
+            return null;
+          }
+
+          return new Date(
+            dateTime.getFullYear(),
+            dateTime.getMonth(),
+            dateTime.getDate()
+          );
+        };
+
         const getLogTime = (log) => {
           const date = parseDateTime(
             log["TS"] ||
@@ -353,6 +377,53 @@
           );
 
           return date ? date.getTime() : 0;
+        };
+
+        // 案件単位のLTを算出
+        // 定義：同じ整理Noの初回DB登録日から最終DB登録日までの日数
+        // 同日完結は1日として扱う
+        const calcLeadTimeText = (group) => {
+          if (
+            !group ||
+            !group.records ||
+            group.records.length === 0
+          ) {
+            return "";
+          }
+
+          const dates = group.records
+            .map(log =>
+              parseDateOnly(
+                log["TS"] ||
+                log["タイムスタンプ"] ||
+                log["日付"]
+              )
+            )
+            .filter(date => date !== null);
+
+          if (dates.length === 0) {
+            return "";
+          }
+
+          const minTime = Math.min(
+            ...dates.map(date => date.getTime())
+          );
+
+          const maxTime = Math.max(
+            ...dates.map(date => date.getTime())
+          );
+
+          const diffDays =
+            Math.floor(
+              (maxTime - minTime) /
+              (1000 * 60 * 60 * 24)
+            ) + 1;
+
+          if (diffDays <= 0) {
+            return "";
+          }
+
+          return `${diffDays}日`;
         };
 
         const getOutputValue = (log) => {
@@ -656,6 +727,7 @@
           clearSearch,
           refreshData,
           formatDate,
+          calcLeadTimeText,
           isGroupExpanded,
           toggleGroup,
           getVisibleRecords,
