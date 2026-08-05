@@ -53,9 +53,11 @@
 
         <button
           @click="refreshData"
-          class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow transition"
+          :disabled="isLoading || isRefreshing"
+          class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          🔄 更新
+          <span v-if="isRefreshing">⏳ 更新中</span>
+          <span v-else>🔄 更新</span>
         </button>
       </div>
     </header>
@@ -66,14 +68,22 @@
         <p class="text-gray-600 font-bold">データを読み込み中...</p>
       </div>
 
-      <div
-        v-else-if="error"
-        class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-      >
-        {{ error }}
-      </div>
-
       <div v-else>
+        <div
+          v-if="error"
+          class="bg-amber-50 border border-amber-400 text-amber-800 px-4 py-3 rounded mb-3"
+        >
+          {{ error }}
+        </div>
+
+        <div
+          v-if="isRefreshing"
+          class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded mb-3 text-sm font-bold"
+        >
+          最新データを取得しています。現在の一覧はそのまま利用できます。
+        </div>
+
+        <template v-if="hasUsableData || !error">
         <p class="text-sm text-gray-500 mb-3 text-right">
           該当:
           <span class="font-bold text-gray-800">
@@ -212,6 +222,7 @@
             履歴が見つかりません。
           </div>
         </div>
+        </template>
       </div>
     </main>
     
@@ -241,7 +252,13 @@
   </div>
 
   <script>
-    const { createApp, ref, computed, onMounted } = Vue;
+    const {
+      createApp,
+      ref,
+      computed,
+      onMounted,
+      onBeforeUnmount
+    } = Vue;
 
     createApp({
       setup() {
@@ -250,6 +267,9 @@
         
         // キャッシュ用キー
         const CACHE_KEY = "sec_past_logs_cache_v36";
+        const CACHE_TIME_KEY = `${CACHE_KEY}_saved_at`;
+        const CACHE_TTL_MS = 5 * 60 * 1000;
+        const FETCH_TIMEOUT_MS = 40 * 1000;
 
         // 倉庫作業で使用する固定整理No.
         const WAREHOUSE_MANAGEMENT_NO = "9900000";
@@ -262,8 +282,14 @@
         const allLogs = ref([]);
         const searchQuery = ref("");
         const isLoading = ref(true);
+        const isRefreshing = ref(false);
         const error = ref(null);
         const expandedGroups = ref({});
+        const hasUsableData = ref(false);
+
+        let activeRequestId = 0;
+        let activeController = null;
+        let isPageActive = true;
 
         const formatDate = (val) => {
           if (!val) return "日付不明";
@@ -499,62 +525,186 @@
           return group.records.slice(0, 1);
         };
 
-        // 爆速キャッシュ＆裏更新ロジック
-        const fetchAllData = async (forceRefresh = false) => {
-          if (forceRefresh) {
-            localStorage.removeItem(CACHE_KEY);
-            allLogs.value = [];
-            isLoading.value = true;
-          } else {
-            const cachedStr = localStorage.getItem(CACHE_KEY);
+        const loadCachedData = () => {
+          const cachedStr = localStorage.getItem(CACHE_KEY);
 
-            if (cachedStr) {
-              try {
-                allLogs.value = JSON.parse(cachedStr);
-                isLoading.value = false;
-              } catch (e) {
-                console.warn("キャッシュパース失敗", e);
-                isLoading.value = true;
-              }
-            } else {
-              isLoading.value = true;
-            }
+          if (!cachedStr) {
+            return {
+              hasCache: false,
+              isFresh: false
+            };
           }
 
           try {
-            const response = await fetch(
-              `${API_URL}?_=${new Date().getTime()}`
+            const cachedData = JSON.parse(cachedStr);
+
+            if (!Array.isArray(cachedData)) {
+              throw new Error("キャッシュ形式が不正です。");
+            }
+
+            allLogs.value = cachedData;
+            hasUsableData.value = true;
+            isLoading.value = false;
+
+            const savedAt = Number(
+              localStorage.getItem(CACHE_TIME_KEY) || 0
             );
 
+            return {
+              hasCache: true,
+              isFresh:
+                savedAt > 0 &&
+                Date.now() - savedAt < CACHE_TTL_MS
+            };
+          } catch (e) {
+            console.warn("キャッシュパース失敗", e);
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_TIME_KEY);
+
+            return {
+              hasCache: false,
+              isFresh: false
+            };
+          }
+        };
+
+        const cancelActiveRequest = () => {
+          activeRequestId += 1;
+
+          if (activeController) {
+            activeController.abort();
+            activeController = null;
+          }
+
+          isRefreshing.value = false;
+        };
+
+        // キャッシュを表示したまま、最新データを安全に取得する
+        const fetchAllData = async () => {
+          cancelActiveRequest();
+
+          const requestId = activeRequestId;
+          const controller = new AbortController();
+          const hadUsableData = hasUsableData.value;
+          let didTimeout = false;
+
+          activeController = controller;
+          error.value = null;
+
+          if (hadUsableData) {
+            isRefreshing.value = true;
+            isLoading.value = false;
+          } else {
+            isLoading.value = true;
+          }
+
+          const timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+          }, FETCH_TIMEOUT_MS);
+
+          try {
+            const response = await fetch(
+              `${API_URL}?_=${Date.now()}`,
+              {
+                signal: controller.signal,
+                cache: "no-store"
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `HTTPエラー: ${response.status}`
+              );
+            }
+
             const json = await response.json();
-            
-            if (json.status === "success") {
-              const freshData = json.data.reverse();
 
-              allLogs.value = freshData;
+            if (
+              !json ||
+              json.status !== "success" ||
+              !Array.isArray(json.data)
+            ) {
+              throw new Error(
+                json && json.message
+                  ? json.message
+                  : "データ形式が不正です。"
+              );
+            }
 
+            if (
+              requestId !== activeRequestId ||
+              !isPageActive
+            ) {
+              return;
+            }
+
+            const freshData = [...json.data].reverse();
+
+            allLogs.value = freshData;
+            hasUsableData.value = true;
+            error.value = null;
+
+            try {
               localStorage.setItem(
                 CACHE_KEY,
                 JSON.stringify(freshData)
               );
-            } else {
-              if (allLogs.value.length === 0) {
-                error.value = "エラー: " + json.message;
-              }
+              localStorage.setItem(
+                CACHE_TIME_KEY,
+                String(Date.now())
+              );
+            } catch (cacheError) {
+              console.warn(
+                "キャッシュ保存失敗",
+                cacheError
+              );
             }
           } catch (e) {
-            if (allLogs.value.length === 0) {
-              error.value = "通信エラーが発生しました。";
+            const isCurrentRequest =
+              requestId === activeRequestId;
+
+            if (
+              !isCurrentRequest ||
+              (
+                e.name === "AbortError" &&
+                !didTimeout
+              )
+            ) {
+              return;
+            }
+
+            if (didTimeout) {
+              error.value = hadUsableData
+                ? "更新に時間がかかっています。現在表示中のデータをそのまま利用できます。"
+                : "データ取得がタイムアウトしました。時間をおいて更新してください。";
+            } else {
+              error.value = hadUsableData
+                ? "更新に失敗しました。現在表示中のデータをそのまま利用できます。"
+                : "通信エラーが発生しました。時間をおいて更新してください。";
             }
 
             console.error("API通信エラー", e);
           } finally {
-            isLoading.value = false;
+            clearTimeout(timeoutId);
+
+            if (requestId === activeRequestId) {
+              activeController = null;
+              isLoading.value = false;
+              isRefreshing.value = false;
+            }
           }
         };
 
         const refreshData = () => {
-          fetchAllData(true);
+          if (
+            isLoading.value ||
+            isRefreshing.value
+          ) {
+            return;
+          }
+
+          fetchAllData();
         };
 
         const groupedLogs = computed(() => {
@@ -713,15 +863,61 @@
           searchQuery.value = "";
         };
         
+        const handlePageHide = () => {
+          isPageActive = false;
+          cancelActiveRequest();
+        };
+
+        const handlePageShow = (event) => {
+          isPageActive = true;
+
+          if (!event.persisted) {
+            return;
+          }
+
+          const cacheState = loadCachedData();
+
+          if (!cacheState.isFresh) {
+            fetchAllData();
+          }
+        };
+
         onMounted(() => {
-          fetchAllData();
+          const cacheState = loadCachedData();
+
+          if (!cacheState.isFresh) {
+            fetchAllData();
+          }
+
+          window.addEventListener(
+            "pagehide",
+            handlePageHide
+          );
+          window.addEventListener(
+            "pageshow",
+            handlePageShow
+          );
+        });
+
+        onBeforeUnmount(() => {
+          window.removeEventListener(
+            "pagehide",
+            handlePageHide
+          );
+          window.removeEventListener(
+            "pageshow",
+            handlePageShow
+          );
+          cancelActiveRequest();
         });
         
         return { 
           searchQuery, 
           filteredGroupedLogs, 
           totalRecordsCount, 
-          isLoading, 
+          isLoading,
+          isRefreshing,
+          hasUsableData,
           error, 
           showYesterday, 
           clearSearch,
