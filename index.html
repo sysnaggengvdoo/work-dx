@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SEC work portal">
     <link rel="manifest" href="manifest.json">
-    <title>SEC work portal v3.84</title>
+    <title>SEC work portal v3.85</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; margin: 0; color: #333; padding-bottom: 50px; overscroll-behavior-y: none; }
@@ -126,7 +126,7 @@
 <div id="app" class="w-full mx-auto bg-gray-100 min-h-screen relative shadow-lg">
 
     <header class="header-container" id="main-header">
-        <h1>作業指示書 Web-v3.84</h1>
+        <h1>作業指示書 Web-v3.85</h1>
         <div class="search-box" id="search-box">
             <input type="text" id="searchInput" placeholder="🔍 整理No、顧客名、担当で検索..." oninput="renderData()">
             
@@ -176,6 +176,9 @@
 <script>
     const gasUrl = "https://script.google.com/macros/s/AKfycbwR5R1bFqR8VyBqzbthQymOnr4qHwkOLnl6WokGrfXWpRgA3CDSAdQ7gnxiD6AIloRh/exec";
     const CACHE_KEY = "sec_portal_cache_v36";
+    const CACHE_TIME_KEY = `${CACHE_KEY}_saved_at`;
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    const FETCH_TIMEOUT_MS = 40 * 1000;
 
     let globalData = [];
     let attendanceData = {}; 
@@ -185,14 +188,15 @@
     let activeLoadId = 0;
     let activeLoadController = null;
     let isFetchingData = false;
+    let hasUsableData = false;
 
-    const LOADING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...';
-    const LOAD_ERROR_HTML = '<div style="color:red; font-weight:bold;">データの読み込みに失敗しました。電波状況を確認してください。</div>';
+    const INITIAL_LOADING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>データを読み込み中...';
+    const REFRESHING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...<br><span style="font-size:0.9em; font-weight:normal;">現在の一覧はそのまま利用できます。</span>';
 
-    function showLoading() {
+    function showLoading(keepCurrentData = hasUsableData) {
         const loadingEl = document.getElementById('loading');
         if (!loadingEl) return;
-        loadingEl.innerHTML = LOADING_HTML;
+        loadingEl.innerHTML = keepCurrentData ? REFRESHING_HTML : INITIAL_LOADING_HTML;
         loadingEl.style.display = 'block';
     }
 
@@ -202,11 +206,66 @@
         loadingEl.style.display = 'none';
     }
 
-    function showLoadError() {
+    function showLoadError(didTimeout, keepCurrentData) {
         const loadingEl = document.getElementById('loading');
         if (!loadingEl) return;
-        loadingEl.innerHTML = LOAD_ERROR_HTML;
+        const message = didTimeout
+            ? (keepCurrentData
+                ? '更新に時間がかかっています。<br>現在表示中のデータをそのまま利用できます。'
+                : 'データ取得がタイムアウトしました。<br>時間をおいて更新してください。')
+            : (keepCurrentData
+                ? '更新に失敗しました。<br>現在表示中のデータをそのまま利用できます。'
+                : '通信エラーが発生しました。<br>時間をおいて更新してください。');
+        loadingEl.innerHTML = `<div style="color:red; font-weight:bold;">${message}</div>`;
         loadingEl.style.display = 'block';
+    }
+
+    function removeCache() {
+        try {
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_TIME_KEY);
+        } catch (error) {
+            console.warn("キャッシュ削除失敗", error);
+        }
+    }
+
+    function saveCache(data) {
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+            localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+        } catch (error) {
+            console.warn("キャッシュ保存失敗", error);
+        }
+    }
+
+    function loadCachedData() {
+        try {
+            const cachedStr = localStorage.getItem(CACHE_KEY);
+            if (!cachedStr) return { hasCache: false, isFresh: false };
+
+            const cachedJSON = JSON.parse(cachedStr);
+            if (!cachedJSON || !Array.isArray(cachedJSON.tasks) ||
+                !cachedJSON.attendance || typeof cachedJSON.attendance !== 'object' ||
+                Array.isArray(cachedJSON.attendance)) {
+                throw new Error("キャッシュ形式が不正です。");
+            }
+
+            globalData = cachedJSON.tasks;
+            attendanceData = cachedJSON.attendance;
+            hasUsableData = true;
+            renderData();
+            hideLoading();
+
+            const savedAt = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
+            return {
+                hasCache: true,
+                isFresh: savedAt > 0 && Date.now() - savedAt < CACHE_TTL_MS
+            };
+        } catch (error) {
+            console.warn("キャッシュの読み込みに失敗", error);
+            removeCache();
+            return { hasCache: false, isFresh: false };
+        }
     }
 
     function abortActiveLoad() {
@@ -225,77 +284,67 @@
     }
 
     function refreshData() {
-        abortActiveLoad();
-        localStorage.removeItem(CACHE_KEY); 
-        globalData = [];
-        attendanceData = {};
-        document.getElementById('appContainer').innerHTML = '';
-        showLoading();
         loadData({ forceRefresh: true });
     }
 
     async function loadData(options = {}) {
         const { forceRefresh = false } = options;
-        abortActiveLoad();
-        const loadId = ++activeLoadId;
-        const controller = typeof AbortController === 'function' ? new AbortController() : null;
-        activeLoadController = controller;
-        isFetchingData = true;
 
-        const cachedStr = forceRefresh ? null : localStorage.getItem(CACHE_KEY);
-        let renderedFromCache = false;
-        let loadedFromNetwork = false;
-
-        if (cachedStr) {
-            try {
-                const cachedJSON = JSON.parse(cachedStr);
-                if (loadId !== activeLoadId) return;
-                globalData = cachedJSON.tasks || [];
-                attendanceData = cachedJSON.attendance || {};
-                renderedFromCache = true;
-                hideLoading();
-                renderData();
-            } catch (e) {
-                console.warn("キャッシュのパースに失敗", e);
-                localStorage.removeItem(CACHE_KEY);
-                showLoading();
-            }
-        } else {
-            showLoading();
+        if (!forceRefresh) {
+            loadCachedData();
         }
 
+        abortActiveLoad();
+        const loadId = activeLoadId;
+        const controller = new AbortController();
+        const hadUsableData = hasUsableData;
+        let didTimeout = false;
+        activeLoadController = controller;
+        isFetchingData = true;
+        showLoading(hadUsableData);
+
+        const timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, FETCH_TIMEOUT_MS);
+
         try {
-            const fetchOptions = controller ? { signal: controller.signal } : {};
-            const response = await fetch(`${gasUrl}?_=${new Date().getTime()}`, fetchOptions);
+            const response = await fetch(`${gasUrl}?_=${Date.now()}`, {
+                signal: controller.signal,
+                cache: "no-store"
+            });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             const result = await response.json();
             if (loadId !== activeLoadId) return;
-            
-            globalData = result.tasks || [];
-            attendanceData = result.attendance || {};
-            
-            localStorage.setItem(CACHE_KEY, JSON.stringify(result));
-            
-            loadedFromNetwork = true;
+
+            if (!result || !Array.isArray(result.tasks) ||
+                !result.attendance || typeof result.attendance !== 'object' ||
+                Array.isArray(result.attendance)) {
+                throw new Error("データ形式が不正です。");
+            }
+
+            globalData = result.tasks;
+            attendanceData = result.attendance;
+            hasUsableData = true;
+
+            saveCache(result);
+
             hideLoading();
             renderData(); 
         } catch (error) {
-            if (error.name === 'AbortError' || loadId !== activeLoadId) return;
+            const isCurrentLoad = loadId === activeLoadId;
+            if (!isCurrentLoad || (error.name === 'AbortError' && !didTimeout)) return;
             console.error("API通信エラー:", error);
-            if (!renderedFromCache) {
-                showLoadError();
-            }
+            showLoadError(didTimeout, hadUsableData);
         } finally {
+            clearTimeout(timeoutId);
             if (activeLoadController === controller) {
                 activeLoadController = null;
             }
             if (loadId === activeLoadId) {
                 isFetchingData = false;
-                if (renderedFromCache || loadedFromNetwork) {
-                    hideLoading();
-                }
             }
         }
     }
@@ -488,16 +537,28 @@
         btn.innerText = "更新中...";
         btn.disabled = true;
 
+        const controller = new AbortController();
+        let didTimeout = false;
+        const timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, FETCH_TIMEOUT_MS);
+
         try {
             const response = await fetch(gasUrl, {
                 method: 'POST',
                 redirect: 'follow', 
                 headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ id: id, status: newStatus, note: newNote, tanto: newTanto })
+                body: JSON.stringify({ id: id, status: newStatus, note: newNote, tanto: newTanto }),
+                signal: controller.signal
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
             const result = await response.json();
-            if(result.success) {
+            if(result.success === true) {
                 const targetRow = globalData.find(row => String(row["ID"]) === String(id));
                 if(targetRow) {
                     targetRow["完了確認"] = newStatus;
@@ -505,21 +566,23 @@
                     targetRow["担当"] = newTanto;
                 }
                 
-                localStorage.setItem(CACHE_KEY, JSON.stringify({
+                saveCache({
                     tasks: globalData,
                     attendance: attendanceData
-                }));
+                });
 
                 renderData(); 
-                btn.innerText = "更新";
-                btn.disabled = false;
             } else {
                 alert("更新失敗: " + result.error);
-                btn.innerText = "更新";
-                btn.disabled = false;
             }
         } catch (error) {
-            alert("通信エラーが発生しました。");
+            if (didTimeout) {
+                alert("通信がタイムアウトしました。\n\nサーバー側では更新されている可能性があります。\n画面上部の「更新」で最新状態を確認してください。");
+            } else {
+                alert("通信エラーが発生しました。\n画面上部の「更新」で最新状態を確認してください。");
+            }
+        } finally {
+            clearTimeout(timeoutId);
             btn.innerText = "更新";
             btn.disabled = false;
         }
