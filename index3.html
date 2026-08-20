@@ -219,7 +219,7 @@
     let hasUsableData = false;
 
     const INITIAL_LOADING_HTML = '<div class="loading-line"><span class="loading-spinner" aria-hidden="true"></span><span>データを読み込み中...</span></div>';
-    const REFRESHING_HTML = '<div class="loading-line"><span class="loading-spinner" aria-hidden="true"></span><span>最新情報を取得中…</span><span aria-hidden="true">・</span><span class="loading-note">一覧はそのまま使えます</span></div>';
+    const REFRESHING_HTML = '<div class="loading-line"><span class="loading-spinner" aria-hidden="true"></span><span>最新情報を取得中…</span><span aria-hidden="true"></span><span class="loading-note">一覧はそのまま使えます</span></div>';
 
     function showLoading(keepCurrentData = hasUsableData) {
         const loadingEl = document.getElementById('loading');
