@@ -118,7 +118,33 @@
         }
         .control-group button { grid-column: 2; grid-row: 1 / 3; padding: 0 20px; font-size: 1.1em; border: none; border-radius: 6px; background-color: #3b82f6; color: white; cursor: pointer; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s; }
         .control-group button:hover { background-color: #2563eb; }
-        #loading { text-align: center; padding: 40px; color: #4b5563; font-size: 1.1em; font-weight: bold; display: none; }
+        #loading {
+            text-align: center;
+            padding: 7px 10px;
+            color: #4b5563;
+            font-size: clamp(0.68rem, 3vw, 0.78rem);
+            font-weight: bold;
+            display: none;
+        }
+        .loading-line {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 18px;
+            white-space: nowrap;
+        }
+        .loading-spinner {
+            width: 15px;
+            height: 15px;
+            border: 2px solid #3b82f6;
+            border-top-color: transparent;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: spin 1s linear infinite;
+        }
+        .loading-note { font-weight: normal; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -139,8 +165,10 @@
 
     <main class="main-content" id="work-order-main">
         <div id="loading">
-            <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-            データを読み込み中...
+            <div class="loading-line">
+                <span class="loading-spinner" aria-hidden="true"></span>
+                <span>データを読み込み中...</span>
+            </div>
         </div>
         <div id="appContainer"></div>
     </main>
@@ -190,8 +218,8 @@
     let isFetchingData = false;
     let hasUsableData = false;
 
-    const INITIAL_LOADING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>データを読み込み中...';
-    const REFRESHING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...<br><span style="font-size:0.9em; font-weight:normal;">現在の一覧はそのまま利用できます。</span>';
+    const INITIAL_LOADING_HTML = '<div class="loading-line"><span class="loading-spinner" aria-hidden="true"></span><span>データを読み込み中...</span></div>';
+    const REFRESHING_HTML = '<div class="loading-line"><span class="loading-spinner" aria-hidden="true"></span><span>最新情報を取得中…</span><span aria-hidden="true">・</span><span class="loading-note">一覧はそのまま使えます</span></div>';
 
     function showLoading(keepCurrentData = hasUsableData) {
         const loadingEl = document.getElementById('loading');
