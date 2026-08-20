@@ -1,1 +1,604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SEC work portal">
+    <link rel="manifest" href="manifest.json">
+    <title>SEC work portal v3.84</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; margin: 0; color: #333; padding-bottom: 50px; overscroll-behavior-y: none; }
+        
+        .header-container { background-color: #1d4ed8; color: white; padding: 8px; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .header-container h1 { text-align: center; font-size: 1.25rem; font-weight: bold; margin: 0 0 4px 0; letter-spacing: 0.05em; text-shadow: none; }
+        
+        /* 検索窓とボタンの配置 */
+        .search-box { display: flex; gap: 6px; width: 100%; align-items: center; }
+        .search-box input { flex: 1; padding: 8px 10px; font-size: 0.95em; border-radius: 6px; border: none; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: black; outline: none; min-width: 0; }
+        .search-box input:focus { box-shadow: 0 0 0 2px #60a5fa; }
+        
+        /* ボタンを横並びにするコンテナ */
+        .header-buttons { display: flex; gap: 6px; flex-shrink: 0; }
 
+        /* コンパクトな共通ボタンスタイル */
+        .action-btn { 
+            padding: 8px 12px; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            cursor: pointer; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            white-space: nowrap; 
+            transition: background-color 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn:active { transform: scale(0.95); }
+
+        .refresh-btn { background-color: #22c55e; }
+        .refresh-btn:hover { background-color: #16a34a; }
+
+        .list-btn { background-color: #f59e0b; }
+        .list-btn:hover { background-color: #d97706; }
+
+        .main-content { padding: 16px; margin: 0 auto; }
+
+        .group-header { width: 100%; background: #2854b8; color: white; padding: 14px 16px; border: none; border-radius: 8px; margin-top: 14px; margin-bottom: 10px; font-size: 1.1em; font-weight: bold; font-family: inherit; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); cursor: pointer; text-align: left; touch-action: manipulation; }
+        .group-header:first-child { margin-top: 0; }
+        .group-header:active { transform: scale(0.99); }
+        .group-header.is-open { background: #3367d6; margin-bottom: 12px; }
+        .accordion-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .accordion-title .group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .accordion-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .count-badge { background: #dbeafe; color: #1e3a8a; padding: 3px 10px; border-radius: 999px; font-size: 0.9rem; line-height: 1.4; min-width: 3.25em; text-align: center; }
+        .accordion-arrow { display: inline-block; width: 1.5em; text-align: center; font-size: 1.05em; }
+        .accordion-body { margin-bottom: 8px; }
+        .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; border-left: 8px solid #9ca3af; border: 1px solid #e5e7eb; border-left-width: 8px; }
+        .card:active { transform: scale(0.98); }
+        .status-planned { border-left-color: #fcd34d !important; background-color: #fefce8; } 
+        .status-gray { 
+            border-left-color: #6b7280 !important; 
+            background-color: #e5e7eb !important;        
+            color: #4b5563;                                
+            opacity: 0.8;                                  
+        }
+        .card-header { font-weight: bold; font-size: 1.15em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-start; min-width: 0; }
+        .card-title { flex: 1; min-width: 0; }
+        .single-line-ellipsis { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        
+        .kintone-link-btn {
+            display: none !important;
+            background-color: #f59e0b;
+            color: white !important;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            text-decoration: none;
+            margin-left: 8px;
+            display: inline-block;
+            vertical-align: middle;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .kintone-link-btn:active { transform: scale(0.95); }
+
+        .output-tag { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #4b5563; border: 1px solid #d1d5db; white-space: nowrap; flex-shrink: 0; }
+        .priority-output-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; }
+        .priority-text { color: #dc2626; font-weight: bold; font-size: 1.05em; }
+        .info { font-size: 0.9em; margin-bottom: 4px; color: #374151; line-height: 1.4; }
+        
+        .control-group { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 10px; margin-top: 15px; }
+        .control-group select { grid-column: 1; grid-row: 1; padding: 10px; font-size: 1em; border-radius: 6px; border: 1px solid #d1d5db; background: white; color: #1f2937; outline: none; }
+        .control-group textarea { 
+            grid-column: 1; 
+            grid-row: 2; 
+            padding: 10px; 
+            font-size: 1em; 
+            border-radius: 6px; 
+            border: 1px solid #d1d5db; 
+            box-sizing: border-box; 
+            background: #f9fafb; 
+            outline: none; 
+            min-height: 60px;
+            resize: vertical; 
+            font-family: inherit; 
+            line-height: 1.4;
+        }
+        .control-group textarea:focus, .control-group select:focus { 
+            border-color: #60a5fa; 
+            box-shadow: 0 0 0 1px #60a5fa; 
+        }
+        .control-group button { grid-column: 2; grid-row: 1 / 3; padding: 0 20px; font-size: 1.1em; border: none; border-radius: 6px; background-color: #3b82f6; color: white; cursor: pointer; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background-color 0.2s; }
+        .control-group button:hover { background-color: #2563eb; }
+        #loading { text-align: center; padding: 40px; color: #4b5563; font-size: 1.1em; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="w-full mx-auto bg-gray-100 min-h-screen relative shadow-lg">
+
+    <header class="header-container" id="main-header">
+        <h1>作業指示書 Web-v3.84</h1>
+        <div class="search-box" id="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 整理No、顧客名、担当で検索..." oninput="renderData()">
+            
+            <div class="header-buttons">
+                <a href="list.html" class="action-btn list-btn">📋 一覧</a>
+                <button class="action-btn refresh-btn" onclick="refreshData()">🔄 更新</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content" id="work-order-main">
+        <div id="loading">
+            <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+            データを読み込み中...
+        </div>
+        <div id="appContainer"></div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 w-full mx-auto bg-white border-t-2 border-gray-300 flex justify-around z-50">
+      <div id="nav-today" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-blue-700 bg-blue-50 font-bold text-lg border-t-4 border-blue-700 transition">
+        今日の作業
+      </div>
+
+      <div id="nav-past" onclick="navigateAway('past.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+        過去検索
+      </div>
+
+      <div id="nav-tools" onclick="navigateAway('tools.html');" class="cursor-pointer flex items-center justify-center w-1/3 py-2 text-gray-500 border-l border-gray-200 font-bold text-lg hover:bg-gray-50 transition">
+        業務ツール
+      </div>
+    </nav>
+
+    <div id="assigneeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[200] flex items-center justify-center">
+        <div class="bg-white p-5 rounded-lg w-11/12 max-w-md max-h-[85vh] flex flex-col shadow-2xl">
+            <h2 class="text-xl font-bold mb-3 border-b pb-2 text-gray-800" id="modalTitle">担当者を選択</h2>
+            <div id="assigneeList" class="flex-1 overflow-y-auto space-y-2 mb-4 p-1">
+                </div>
+            <div class="flex justify-end gap-3 mt-2 border-t pt-3">
+                <button onclick="closeAssigneeModal()" class="px-5 py-3 bg-gray-200 text-gray-700 rounded font-bold hover:bg-gray-300">キャンセル</button>
+                <button onclick="confirmAssignee()" class="px-5 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 shadow-md">確定して保存</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const gasUrl = "https://script.google.com/macros/s/AKfycbwR5R1bFqR8VyBqzbthQymOnr4qHwkOLnl6WokGrfXWpRgA3CDSAdQ7gnxiD6AIloRh/exec";
+    const CACHE_KEY = "sec_portal_cache_v36";
+    const CACHE_TIME_KEY = `${CACHE_KEY}_saved_at`;
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+    const FETCH_TIMEOUT_MS = 40 * 1000;
+
+    let globalData = [];
+    let attendanceData = {}; 
+    let currentEditingId = null; 
+    let openedGroups = new Set();
+    let lastSearchWord = "";
+    let activeLoadId = 0;
+    let activeLoadController = null;
+    let isFetchingData = false;
+    let hasUsableData = false;
+
+    const INITIAL_LOADING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>データを読み込み中...';
+    const REFRESHING_HTML = '<div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>最新情報を取得中...<br><span style="font-size:0.9em; font-weight:normal;">現在の一覧はそのまま利用できます。</span>';
+
+    function showLoading(keepCurrentData = hasUsableData) {
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
+        loadingEl.innerHTML = keepCurrentData ? REFRESHING_HTML : INITIAL_LOADING_HTML;
+        loadingEl.style.display = 'block';
+    }
+
+    function hideLoading() {
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
+        loadingEl.style.display = 'none';
+    }
+
+    function showLoadError(didTimeout, keepCurrentData) {
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
+        const message = didTimeout
+            ? (keepCurrentData
+                ? '更新に時間がかかっています。<br>現在表示中のデータをそのまま利用できます。'
+                : 'データ取得がタイムアウトしました。<br>時間をおいて更新してください。')
+            : (keepCurrentData
+                ? '更新に失敗しました。<br>現在表示中のデータをそのまま利用できます。'
+                : '通信エラーが発生しました。<br>時間をおいて更新してください。');
+        loadingEl.innerHTML = `<div style="color:red; font-weight:bold;">${message}</div>`;
+        loadingEl.style.display = 'block';
+    }
+
+    function removeCache() {
+        try {
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_TIME_KEY);
+        } catch (error) {
+            console.warn("キャッシュ削除失敗", error);
+        }
+    }
+
+    function saveCache(data) {
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+            localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
+        } catch (error) {
+            console.warn("キャッシュ保存失敗", error);
+        }
+    }
+
+    function loadCachedData() {
+        try {
+            const cachedStr = localStorage.getItem(CACHE_KEY);
+            if (!cachedStr) return { hasCache: false, isFresh: false };
+
+            const cachedJSON = JSON.parse(cachedStr);
+            if (!cachedJSON || !Array.isArray(cachedJSON.tasks) ||
+                !cachedJSON.attendance || typeof cachedJSON.attendance !== 'object' ||
+                Array.isArray(cachedJSON.attendance)) {
+                throw new Error("キャッシュ形式が不正です。");
+            }
+
+            globalData = cachedJSON.tasks;
+            attendanceData = cachedJSON.attendance;
+            hasUsableData = true;
+            renderData();
+            hideLoading();
+
+            const savedAt = Number(localStorage.getItem(CACHE_TIME_KEY) || 0);
+            return {
+                hasCache: true,
+                isFresh: savedAt > 0 && Date.now() - savedAt < CACHE_TTL_MS
+            };
+        } catch (error) {
+            console.warn("キャッシュの読み込みに失敗", error);
+            removeCache();
+            return { hasCache: false, isFresh: false };
+        }
+    }
+
+    function abortActiveLoad() {
+        activeLoadId++;
+        if (activeLoadController) {
+            activeLoadController.abort();
+            activeLoadController = null;
+        }
+        isFetchingData = false;
+    }
+
+    function navigateAway(url) {
+        abortActiveLoad();
+        hideLoading();
+        window.location.replace(url);
+    }
+
+    function refreshData() {
+        loadData({ forceRefresh: true });
+    }
+
+    async function loadData(options = {}) {
+        const { forceRefresh = false } = options;
+
+        if (!forceRefresh) {
+            loadCachedData();
+        }
+
+        abortActiveLoad();
+        const loadId = activeLoadId;
+        const controller = new AbortController();
+        const hadUsableData = hasUsableData;
+        let didTimeout = false;
+        activeLoadController = controller;
+        isFetchingData = true;
+        showLoading(hadUsableData);
+
+        const timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, FETCH_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(`${gasUrl}?_=${Date.now()}`, {
+                signal: controller.signal,
+                cache: "no-store"
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const result = await response.json();
+            if (loadId !== activeLoadId) return;
+
+            if (!result || !Array.isArray(result.tasks) ||
+                !result.attendance || typeof result.attendance !== 'object' ||
+                Array.isArray(result.attendance)) {
+                throw new Error("データ形式が不正です。");
+            }
+
+            globalData = result.tasks;
+            attendanceData = result.attendance;
+            hasUsableData = true;
+
+            saveCache(result);
+
+            hideLoading();
+            renderData(); 
+        } catch (error) {
+            const isCurrentLoad = loadId === activeLoadId;
+            if (!isCurrentLoad || (error.name === 'AbortError' && !didTimeout)) return;
+            console.error("API通信エラー:", error);
+            showLoadError(didTimeout, hadUsableData);
+        } finally {
+            clearTimeout(timeoutId);
+            if (activeLoadController === controller) {
+                activeLoadController = null;
+            }
+            if (loadId === activeLoadId) {
+                isFetchingData = false;
+            }
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function createTaskCard(row) {
+        let statusClass = "";
+        if (row["完了確認"] === "完了予定") statusClass = "status-planned";
+        if (row["完了確認"] === "完了" || row["完了確認"] === "繰越") statusClass = "status-gray";
+
+        const div = document.createElement('div');
+        div.className = `card ${statusClass}`;
+        const outputDisplay = row["出"] ? `<div class="output-tag">出力: ${row["出"]}</div>` : "";
+
+        const kintoneLink = row["修理カードURL"]
+            ? `<a href="${row["修理カードURL"]}" target="_blank" class="kintone-link-btn">🔗 開発中</a>`
+            : "";
+
+        div.innerHTML = `
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="single-line-ellipsis">${row["整理No."]}：${row["顧客名"] || "-"}</span>
+                    ${kintoneLink}
+                </div>
+            </div>
+            <div class="info priority-output-row"><span class="priority-text">優先順：${row["順"] || "-"}</span>${outputDisplay}</div>
+            <div class="info"><strong>作業内容:</strong> ${row["作業内容"] || "-"}</div>
+
+            <div class="info mt-3 mb-2 flex items-center">
+                <strong class="whitespace-nowrap">担当:</strong>
+                <button onclick="openAssigneeModal('${row["ID"]}', '${row["部署"]}')" class="ml-2 bg-white hover:bg-blue-50 text-blue-700 py-1.5 px-3 rounded border border-blue-400 shadow-sm text-sm font-bold transition-colors w-full text-left">
+                    <span id="display-tanto-${row["ID"]}">${row["担当"] || "未定（タップして選択）"}</span>
+                </button>
+            </div>
+
+            <div class="control-group">
+                <select id="status-${row["ID"]}">
+                    <option value="未着手" ${!row["完了確認"] || row["完了確認"] === "未着手" ? "selected" : ""}>未着手</option>
+                    <option value="完了予定" ${row["完了確認"] === "完了予定" ? "selected" : ""}>完了予定</option>
+                    <option value="完了" ${row["完了確認"] === "完了" ? "selected" : ""}>完了</option>
+                    <option value="繰越" ${row["完了確認"] === "繰越" ? "selected" : ""}>繰越</option>
+                </select>
+                <textarea id="note-${row["ID"]}" placeholder="備考を入力..." rows="2">${row["備考"] || ""}</textarea>
+                <button id="btn-${row["ID"]}" onclick="updateStatus('${row["ID"]}')">更新</button>
+            </div>
+        `;
+
+        return div;
+    }
+
+    function renderData() {
+        const container = document.getElementById('appContainer');
+        container.innerHTML = '';
+        const searchWord = document.getElementById('searchInput').value.trim().toLowerCase();
+        const isSearching = searchWord.length > 0;
+
+        if (!isSearching && lastSearchWord) {
+            openedGroups.clear();
+        }
+        lastSearchWord = searchWord;
+
+        const filteredData = globalData.filter(row => {
+            if(!row["ID"]) return false; 
+            if (!isSearching) return true;
+            const matchId = String(row["整理No."] || "").toLowerCase().includes(searchWord);
+            const matchName = String(row["顧客名"] || "").toLowerCase().includes(searchWord);
+            const matchPerson = String(row["担当"] || "").toLowerCase().includes(searchWord);
+            return matchId || matchName || matchPerson;
+        });
+
+        const groupedData = {};
+        filteredData.forEach(row => {
+            const groupName = row["部署"] || "その他（部署未定）";
+            if (!groupedData[groupName]) { groupedData[groupName] = []; }
+            groupedData[groupName].push(row);
+        });
+
+        for (const [groupName, rows] of Object.entries(groupedData)) {
+            if (rows.length === 0) continue;
+
+            rows.sort((a, b) => (parseInt(a["順"]) || 999) - (parseInt(b["順"]) || 999));
+
+            const isOpen = isSearching || openedGroups.has(groupName);
+            const headerObj = document.createElement('button');
+            headerObj.type = 'button';
+            headerObj.className = `group-header accordion-header${isOpen ? ' is-open' : ''}`;
+            headerObj.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            headerObj.innerHTML = `
+                <span class="accordion-title">
+                    <span aria-hidden="true">📁</span>
+                    <span class="group-name">${escapeHtml(groupName)}</span>
+                </span>
+                <span class="accordion-meta">
+                    <span class="count-badge">${rows.length}件</span>
+                    <span class="accordion-arrow" aria-hidden="true">${isOpen ? '▼' : '▶'}</span>
+                </span>
+            `;
+            headerObj.addEventListener('click', () => {
+                if (openedGroups.has(groupName)) {
+                    openedGroups.delete(groupName);
+                } else {
+                    openedGroups.add(groupName);
+                }
+                renderData();
+            });
+            container.appendChild(headerObj);
+
+            if (!isOpen) continue;
+
+            const bodyObj = document.createElement('div');
+            bodyObj.className = 'accordion-body';
+            rows.forEach(row => bodyObj.appendChild(createTaskCard(row)));
+            container.appendChild(bodyObj);
+        }
+
+        if (filteredData.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:30px; color:#6b7280; background:white; border-radius:8px; border:1px solid #e5e7eb;">一致する指示書がありません</div>';
+        }
+    }
+
+    function openAssigneeModal(id, dept) {
+        currentEditingId = id;
+        document.getElementById('assigneeModal').classList.remove('hidden');
+        document.getElementById('modalTitle').innerText = `【${dept}】の担当者を選択`;
+
+        const listContainer = document.getElementById('assigneeList');
+        listContainer.innerHTML = '';
+
+        const currentTantoStr = document.getElementById(`display-tanto-${id}`).innerText;
+        const currentTantoArr = currentTantoStr.split(',').map(s => s.trim());
+
+        const availableMembers = attendanceData[dept] || [];
+
+        if (availableMembers.length === 0) {
+            listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この部署の出勤者データがありません。</p>';
+            return;
+        }
+
+        availableMembers.forEach(member => {
+            const isChecked = currentTantoArr.includes(member) ? 'checked' : '';
+            const label = document.createElement('label');
+            label.className = 'flex items-center p-3 mb-2 border rounded-lg hover:bg-blue-50 cursor-pointer bg-gray-50 transition-colors';
+            label.innerHTML = `
+                <input type="checkbox" value="${member}" class="assignee-checkbox w-6 h-6 text-blue-600 mr-3 rounded" ${isChecked}>
+                <span class="text-lg font-medium text-gray-800">${member}</span>
+            `;
+            listContainer.appendChild(label);
+        });
+    }
+
+    function closeAssigneeModal() {
+        document.getElementById('assigneeModal').classList.add('hidden');
+        currentEditingId = null;
+    }
+
+    function confirmAssignee() {
+        if (!currentEditingId) return;
+        
+        const checkboxes = document.querySelectorAll('.assignee-checkbox:checked');
+        const selectedMembers = Array.from(checkboxes).map(cb => cb.value);
+        
+        const displaySpan = document.getElementById(`display-tanto-${currentEditingId}`);
+        if (selectedMembers.length > 0) {
+            displaySpan.innerText = selectedMembers.join(', ');
+        } else {
+            displaySpan.innerText = '未定（タップして選択）';
+        }
+        
+        const targetId = currentEditingId;
+        closeAssigneeModal();
+        updateStatus(targetId);
+    }
+
+    async function updateStatus(id) {
+        const newStatus = document.getElementById(`status-${id}`).value;
+        const newNote = document.getElementById(`note-${id}`).value;
+        let newTanto = document.getElementById(`display-tanto-${id}`).innerText;
+        
+        if (newTanto === "未定（タップして選択）") newTanto = "";
+
+        const btn = document.getElementById(`btn-${id}`);
+        btn.innerText = "更新中...";
+        btn.disabled = true;
+
+        const controller = new AbortController();
+        let didTimeout = false;
+        const timeoutId = setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, FETCH_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(gasUrl, {
+                method: 'POST',
+                redirect: 'follow', 
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ id: id, status: newStatus, note: newNote, tanto: newTanto }),
+                signal: controller.signal
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+            if(result.success === true) {
+                const targetRow = globalData.find(row => String(row["ID"]) === String(id));
+                if(targetRow) {
+                    targetRow["完了確認"] = newStatus;
+                    targetRow["備考"] = newNote;
+                    targetRow["担当"] = newTanto;
+                }
+                
+                saveCache({
+                    tasks: globalData,
+                    attendance: attendanceData
+                });
+
+                renderData(); 
+            } else {
+                alert("更新失敗: " + result.error);
+            }
+        } catch (error) {
+            if (didTimeout) {
+                alert("通信がタイムアウトしました。\n\nサーバー側では更新されている可能性があります。\n画面上部の「更新」で最新状態を確認してください。");
+            } else {
+                alert("通信エラーが発生しました。\n画面上部の「更新」で最新状態を確認してください。");
+            }
+        } finally {
+            clearTimeout(timeoutId);
+            btn.innerText = "更新";
+            btn.disabled = false;
+        }
+    }
+
+    window.addEventListener('load', () => loadData());
+    window.addEventListener('pagehide', () => {
+        abortActiveLoad();
+        hideLoading();
+    });
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            loadData();
+        }
+    });
+</script>
+
+</body>
+</html>
