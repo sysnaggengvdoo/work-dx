@@ -44,6 +44,13 @@
 
         .refresh-btn { background-color: #22c55e; }
         .refresh-btn:hover { background-color: #16a34a; }
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .refresh-btn:disabled:hover {
+            background-color: #22c55e;
+        }
 
         .list-btn { background-color: #f59e0b; }
         .list-btn:hover { background-color: #d97706; }
@@ -158,7 +165,7 @@
             
             <div class="header-buttons">
                 <a href="list.html" class="action-btn list-btn">📋 一覧</a>
-                <button class="action-btn refresh-btn" onclick="refreshData()">🔄 更新</button>
+                <button id="refreshButton" class="action-btn refresh-btn" onclick="refreshData()">🔄 更新</button>
             </div>
         </div>
     </header>
@@ -311,7 +318,18 @@
         window.location.replace(url);
     }
 
+    function setRefreshButtonLoading(isLoading) {
+        const refreshButton = document.getElementById('refreshButton');
+        if (!refreshButton) return;
+
+        refreshButton.disabled = isLoading;
+        refreshButton.textContent = isLoading
+            ? '⏳ 更新中'
+            : '🔄 更新';
+    }
+
     function refreshData() {
+        if (isFetchingData) return;
         loadData({ forceRefresh: true });
     }
 
@@ -329,6 +347,7 @@
         let didTimeout = false;
         activeLoadController = controller;
         isFetchingData = true;
+        setRefreshButtonLoading(true);
         showLoading(hadUsableData);
 
         const timeoutId = setTimeout(() => {
@@ -373,6 +392,7 @@
             }
             if (loadId === activeLoadId) {
                 isFetchingData = false;
+                setRefreshButtonLoading(false);
             }
         }
     }
