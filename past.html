@@ -78,9 +78,15 @@
 
         <div
           v-if="isRefreshing"
-          class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded mb-3 text-sm font-bold"
+          class="flex items-center justify-center gap-[6px] min-h-[18px] whitespace-nowrap py-[7px] px-[10px] mb-3 text-gray-600 text-[clamp(0.68rem,3vw,0.78rem)] font-bold"
         >
-          最新データを取得しています。現在の一覧はそのまま利用できます。
+          <span
+            class="animate-spin w-[15px] h-[15px] border-2 border-blue-500 border-t-transparent rounded-full shrink-0"
+            aria-hidden="true"
+          ></span>
+          <span>最新情報を取得中…</span>
+          <span aria-hidden="true"></span>
+          <span class="font-normal">一覧はそのまま使えます</span>
         </div>
 
         <template v-if="hasUsableData || !error">
